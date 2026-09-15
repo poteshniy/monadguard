@@ -5,8 +5,7 @@ Scan a tool **before** an agent connects to it → signed receipt → anchored o
 queryable trust history.
 
 Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & AI Infrastructure)
-+ Envio bounty.
-
++ 
 ---
 
 ## Architecture
@@ -170,7 +169,7 @@ anchoring for the demo would otherwise cost real MON.
 
 ---
 
-## PRF constraints (from Mera docs) — these are architectural, not details
+## PRF constraints — architectural, not details
 
 - **PRF is browser-only.** WebAuthn is a browser API and a passkey is bound to an `rpId`
   (a domain). Node cannot run a ceremony. Receipt signing therefore happens client-side:
@@ -188,17 +187,13 @@ anchoring for the demo would otherwise cost real MON.
   mints a random handle per creation, so a "create" on device two silently yields a
   different attestor identity. This is the single most likely way the live demo fails.
 
-## DECIDED: P-256 receipts, verified on-chain
+## P-256 receipts, verified on-chain
 
 PRF returns exactly 32 bytes — a valid seed for either ed25519 or secp256r1. Monad exposes
 the RIP-7212 / EIP-7951 `P256VERIFY` precompile at `0x0000...0100` (160-byte input:
 hash ‖ r ‖ s ‖ x ‖ y; returns 1 on success). Signing receipts on P-256 lets `anchorScan`
 **verify the attestor's signature on-chain** rather than record a hash of it: you cannot
 anchor a verdict you did not sign. Ed25519 has no such precompile.
-
-Cost: ~1h to move receipt signing from EdDSA to ES256 (jose supports both), ~1.5h contract
-change + tests, plus the precompile's gas per anchor and 128 extra calldata bytes.
-Verify the gas figure on Monad before committing — 3450 pre-Osaka, 6900 after.
 
 Trade-off accepted: this breaks "port `jws.js` as-is". `jws.js` moves from EdDSA to ES256.
 
