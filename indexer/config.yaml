@@ -1,0 +1,19 @@
+# Envio HyperIndex — Monad. Both 10143 (testnet) and 143 (mainnet) are GOLD tier.
+# Set `id` and `address` after deploy; start_block = deployment.json:deployBlock.
+name: monadguard-registry
+description: On-chain trust registry for agentic tools (MCP servers / skills)
+field_selection:
+  transaction_fields:
+    - hash
+
+chains:
+  - id: 10143            # <-- 143 if the hackathon requires mainnet
+    start_block: 61019528       # <-- deployment.json:deployBlock
+    contracts:
+      - name: ScanRegistry
+        address:
+          - "0xd0f6edd9be9cde91f671f4c2e129ee6105358436"   # <-- deployment.json:address
+        handler: src/EventHandlers.ts
+        events:
+          - event: ScanAnchored(bytes32 indexed toolId, address indexed attestor, bytes32 indexed contentHash, uint8 verdict, uint16 score, bytes32 receiptHash, string receiptURI, uint64 timestamp)
+          - event: AttestorRegistered(address indexed attestor, bytes32 pubKeyX, bytes32 pubKeyY, string metaURI)

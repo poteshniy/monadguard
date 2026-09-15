@@ -1,0 +1,664 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        }
+      ],
+      "name": "BadScore",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BadSignature",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        }
+      ],
+      "name": "BadVerdict",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EmptyBatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        }
+      ],
+      "name": "UnknownAttestor",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroContentHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroKey",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroToolId",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "pubKeyX",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "pubKeyY",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "metaURI",
+          "type": "string"
+        }
+      ],
+      "name": "AttestorRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "receiptHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "receiptURI",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        }
+      ],
+      "name": "ScanAnchored",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "P256VERIFY",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SCORE_MAX",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "VERDICT_MAX",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "receiptHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "anchorDigest",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "receiptHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "string",
+          "name": "receiptURI",
+          "type": "string"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        }
+      ],
+      "name": "anchorScan",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "count",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "toolId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "contentHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "receiptHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint8",
+              "name": "verdict",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "score",
+              "type": "uint16"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "r",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "s",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "string",
+              "name": "receiptURI",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct ScanRegistry.ScanInput[]",
+          "name": "scans",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "anchorScanBatch",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "written",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "attestorKey",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "x",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "y",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "maxAge",
+          "type": "uint64"
+        }
+      ],
+      "name": "isCleared",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "isKnown",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        }
+      ],
+      "name": "isRegistered",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "latest",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "receiptHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint32",
+          "name": "count",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "toolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        }
+      ],
+      "name": "latestVerdict",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "verdict",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint16",
+          "name": "score",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint64",
+          "name": "timestamp",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "contentHash",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "x",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "y",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "string",
+          "name": "metaURI",
+          "type": "string"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registerAttestor",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "attestor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "x",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "y",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registrationDigest",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "toolScanCount",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalAnchors",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "digest",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "x",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "y",
+          "type": "bytes32"
+        }
+      ],
+      "name": "verifySignature",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080604052348015600e575f5ffd5b506111438061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610106575f3560e01c80639553b1471161009e578063bd50f6551161006e578063bd50f655146103b0578063c3c5a547146103d1578063cb5392ed146103e4578063cfb04b3b146103f9578063f61262e11461040c575f5ffd5b80639553b147146103125780639824d5f7146103375780639a1b09ef146103725780639ffb463514610385575f5ffd5b8063524510bc116100d9578063524510bc146101785780637fd1c47f146101af578063883f6d831461025b5780638a208de314610283575f5ffd5b80631d08554c1461010a5780631e50ee5f14610130578063433dad751461014b5780634d1e688914610165575b5f5ffd5b61011d610118366004610c63565b61041f565b6040519081526020015b60405180910390f35b610138606481565b60405161ffff9091168152602001610127565b610153600381565b60405160ff9091168152602001610127565b61011d610173366004610cc0565b610511565b61019f610186366004610cf0565b5f9081526001602052604090205463ffffffff16151590565b6040519015158152602001610127565b6102146101bd366004610d07565b5f6020818152928152604080822090935290815220805460018201546002909201549091906001600160401b03811690600160401b810460ff1690600160481b810461ffff1690600160581b900463ffffffff1686565b6040805196875260208701959095526001600160401b039093169385019390935260ff16606084015261ffff909116608083015263ffffffff1660a082015260c001610127565b61026e610269366004610d75565b6105d3565b60405163ffffffff9091168152602001610127565b6102dd610291366004610d07565b5f918252602082815260408084206001600160a01b03939093168452919052902060028101549054600160401b820460ff1692600160481b830461ffff16926001600160401b03169190565b6040805160ff909516855261ffff90931660208501526001600160401b03909116918301919091526060820152608001610127565b61026e610320366004610cf0565b60016020525f908152604090205463ffffffff1681565b61035d610345366004610e02565b60026020525f90815260409020805460019091015482565b60408051928352602083019190915201610127565b61011d610380366004610e1b565b61065b565b600354610398906001600160401b031681565b6040516001600160401b039091168152602001610127565b6103b961010081565b6040516001600160a01b039091168152602001610127565b61019f6103df366004610e02565b61076d565b6103f76103f2366004610e8a565b61079d565b005b61019f610407366004610ee9565b610870565b61019f61041a366004610f39565b6108f5565b604051734d6f6e616447756172642f616e63686f722f763160601b60208201524660348201526bffffffffffffffffffffffff1930606090811b8216605484015288901b166068820152607c8101869052609c81018590526001600160f81b031960f885901b1660bc8201526001600160f01b031960f084901b1660bd82015260bf81018290525f9060029060df0160408051601f19818403018152908290526104c891610f70565b602060405180830381855afa1580156104e3573d5f5f3e3d5ffd5b5050506040513d601f19601f820116820180604052508101906105069190610f9c565b979650505050505050565b604051754d6f6e616447756172642f72656769737465722f763160501b60208201524660368201526bffffffffffffffffffffffff1930606090811b8216605684015285901b16606a820152607e8101839052609e81018290525f9060029060be0160408051601f198184030181529082905261058d91610f70565b602060405180830381855afa1580156105a8573d5f5f3e3d5ffd5b5050506040513d601f19601f820116820180604052508101906105cb9190610f9c565b949350505050565b335f90815260026020526040812080541580156105f257506001810154155b156106175760405163d5bd637f60e01b81523360048201526024015b60405180910390fd5b6106298b8b8b8b8b8b8b8b8b8a610903565b600380546001600160401b038082166001011667ffffffffffffffff199091161790559b9a5050505050505050505050565b805f81900361067d5760405163c2e5347d60e01b815260040160405180910390fd5b335f908152600260205260409020805415801561069c57506001810154155b156106bc5760405163d5bd637f60e01b815233600482015260240161060e565b5f5b8281101561074357368585838181106106d9576106d9610fb3565b90506020028101906106eb9190610fc7565b9050610739813560208301356107076080850160608601610fe5565b61071760a0860160808701610ffe565b604086013561072960e0880188611017565b8860a001358960c001358c610903565b50506001016106be565b5050600380546001600160401b0380821684011667ffffffffffffffff1990911617905592915050565b6001600160a01b0381165f90815260026020526040812080541515806107965750600181015415155b9392505050565b851580156107a9575084155b156107c757604051637dec24e360e11b815260040160405180910390fd5b6107de6107d5338888610511565b83838989610b5f565b6107fb57604051635cd5d23360e01b815260040160405180910390fd5b6040805180820182528781526020808201888152335f818152600290935291849020925183555160019092019190915590517fa2402b3fb02101546e0d5456a7aed0fc4c2796dec9fa2353dc67f076d633377690610860908990899089908990611081565b60405180910390a2505050505050565b5f848152602081815260408083206001600160a01b0386168452909152812060028101546001600160401b0316158015906108b957506002810154600160401b900460ff166001145b80156108c55750805485145b80156108eb575060028101546001600160401b03808516916108e89116426110a0565b11155b9695505050505050565b5f6108eb8686868686610b5f565b5f8a61092257604051634f3d10af60e01b815260040160405180910390fd5b8961094057604051636abf878960e11b815260040160405180910390fd5b600360ff8a16111561096a57604051633e8f13bd60e21b815260ff8a16600482015260240161060e565b606461ffff891611156109965760405163e7a4766560e01b815261ffff8916600482015260240161060e565b5f6109a5338d8d8d8d8d61041f565b90506109bb818686865f01548760010154610b5f565b6109d857604051635cd5d23360e01b815260040160405180910390fd5b5f5f5f8e81526020019081526020015f205f336001600160a01b03166001600160a01b031681526020019081526020015f20905080600201600b9054906101000a900463ffffffff1660010192508b815f018190555088816001018190555042816002015f6101000a8154816001600160401b0302191690836001600160401b031602179055508a8160020160086101000a81548160ff021916908360ff160217905550898160020160096101000a81548161ffff021916908361ffff1602179055508281600201600b6101000a81548163ffffffff021916908363ffffffff1602179055506001805f8f81526020019081526020015f205f8282829054906101000a900463ffffffff160192506101000a81548163ffffffff021916908363ffffffff1602179055508b336001600160a01b03168e7f447e65b8fd87b03cb212e75fd0a5df64d2c21e67ab5368f3f5017467df3c7ff28e8e8e8e8e42604051610b47969594939291906110c5565b60405180910390a450509a9950505050505050505050565b6040805160208101879052908101859052606081018490526080810183905260a081018290525f90819081906101009060c00160408051601f1981840301815290829052610bac91610f70565b5f60405180830381855afa9150503d805f8114610be4576040519150601f19603f3d011682016040523d82523d5f602084013e610be9565b606091505b5091509150818015610bfc575080516020145b8015610c1b575080806020019051810190610c179190610f9c565b6001145b98975050505050505050565b80356001600160a01b0381168114610c3d575f5ffd5b919050565b803560ff81168114610c3d575f5ffd5b803561ffff81168114610c3d575f5ffd5b5f5f5f5f5f5f60c08789031215610c78575f5ffd5b610c8187610c27565b95506020870135945060408701359350610c9d60608801610c42565b9250610cab60808801610c52565b9598949750929591949360a090920135925050565b5f5f5f60608486031215610cd2575f5ffd5b610cdb84610c27565b95602085013595506040909401359392505050565b5f60208284031215610d00575f5ffd5b5035919050565b5f5f60408385031215610d18575f5ffd5b82359150610d2860208401610c27565b90509250929050565b5f5f83601f840112610d41575f5ffd5b5081356001600160401b03811115610d57575f5ffd5b602083019150836020828501011115610d6e575f5ffd5b9250929050565b5f5f5f5f5f5f5f5f5f6101008a8c031215610d8e575f5ffd5b8935985060208a01359750610da560408b01610c42565b9650610db360608b01610c52565b955060808a0135945060a08a01356001600160401b03811115610dd4575f5ffd5b610de08c828d01610d31565b9a9d999c50979a96999598959660c08101359660e09091013595509350505050565b5f60208284031215610e12575f5ffd5b61079682610c27565b5f5f60208385031215610e2c575f5ffd5b82356001600160401b03811115610e41575f5ffd5b8301601f81018513610e51575f5ffd5b80356001600160401b03811115610e66575f5ffd5b8560208260051b8401011115610e7a575f5ffd5b6020919091019590945092505050565b5f5f5f5f5f5f60a08789031215610e9f575f5ffd5b863595506020870135945060408701356001600160401b03811115610ec2575f5ffd5b610ece89828a01610d31565b979a9699509760608101359660809091013595509350505050565b5f5f5f5f60808587031215610efc575f5ffd5b8435935060208501359250610f1360408601610c27565b915060608501356001600160401b0381168114610f2e575f5ffd5b939692955090935050565b5f5f5f5f5f60a08688031215610f4d575f5ffd5b505083359560208501359550604085013594606081013594506080013592509050565b5f82515f5b81811015610f8f5760208186018101518583015201610f75565b505f920191825250919050565b5f60208284031215610fac575f5ffd5b5051919050565b634e487b7160e01b5f52603260045260245ffd5b5f823560fe19833603018112610fdb575f5ffd5b9190910192915050565b5f60208284031215610ff5575f5ffd5b61079682610c42565b5f6020828403121561100e575f5ffd5b61079682610c52565b5f5f8335601e1984360301811261102c575f5ffd5b8301803591506001600160401b03821115611045575f5ffd5b602001915036819003821315610d6e575f5ffd5b81835281816020850137505f828201602090810191909152601f909101601f19169091010190565b848152836020820152606060408201525f6108eb606083018486611059565b818103818111156110bf57634e487b7160e01b5f52601160045260245ffd5b92915050565b60ff8716815261ffff8616602082015284604082015260a060608201525f6110f160a083018587611059565b90506001600160401b038316608083015297965050505050505056fea2646970667358221220c7fe7cc2c1bc0d4a5148cb2073b26c0a0c5c282c9e02b8787a18e56b3d003ac864736f6c634300081c0033"
+}

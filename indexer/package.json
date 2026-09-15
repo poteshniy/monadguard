@@ -1,0 +1,15 @@
+{
+  "name": "monadguard-indexer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "stop": "envio stop"
+  },
+  "devDependencies": {
+    "envio": "^3.10.0",
+    "typescript": "^7.0.2"
+  }
+}

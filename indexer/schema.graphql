@@ -1,0 +1,57 @@
+"A tool's stable identity, with its aggregated trust history."
+type Tool {
+  id: ID!                 # toolId (bytes32 hex)
+  firstSeen: BigInt!
+  lastSeen: BigInt!
+  scanCount: Int!
+  cleanCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  latestVerdict: Int!
+  latestScore: Int!
+  latestContentHash: String!
+  latestAttestor: String!
+  versionCount: Int!
+  scans: [Scan!]! @derivedFrom(field: "tool")
+  versions: [ToolVersion!]! @derivedFrom(field: "tool")
+}
+
+"One scanned manifest version of a tool."
+type ToolVersion {
+  id: ID!                 # toolId-contentHash
+  tool: Tool!
+  contentHash: String!
+  firstSeen: BigInt!
+  lastSeen: BigInt!
+  scanCount: Int!
+  latestVerdict: Int!
+  latestScore: Int!
+}
+
+"A single anchored scan. This is the audit trail."
+type Scan {
+  id: ID!                 # txHash-logIndex
+  tool: Tool!
+  version: ToolVersion!
+  attestor: Attestor!
+  contentHash: String!
+  verdict: Int!           # 0 UNKNOWN 1 CLEAN 2 WARN 3 CRITICAL
+  score: Int!             # 0..100 risk
+  receiptHash: String!
+  receiptURI: String!
+  timestamp: BigInt!
+  blockNumber: Int!
+  txHash: String!
+}
+
+"Whoever anchors. Trust is filtered by this, not gatekept on-chain."
+type Attestor {
+  id: ID!                 # address
+  pubKeyX: String
+  pubKeyY: String
+  metaURI: String
+  registeredAt: BigInt
+  scanCount: Int!
+  toolsCovered: Int!
+  scans: [Scan!]! @derivedFrom(field: "attestor")
+}

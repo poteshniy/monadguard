@@ -1,0 +1,12 @@
+node_modules/
+data/
+.env
+.env.*
+!.env.example
+*.log
+logs/
+# deployment.json IS committed on purpose — the deployed address is public
+# information and judges need it. Never put keys in it.
+*.bak
+.*.bak
+port/
