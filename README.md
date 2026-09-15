@@ -194,7 +194,7 @@ hash ‖ r ‖ s ‖ x ‖ y; returns 1 on success). Signing receipts on P-256 l
 **verify the attestor's signature on-chain** rather than record a hash of it: you cannot
 anchor a verdict you did not sign. Ed25519 has no such precompile.
 
-**DONE.** `anchorScan` takes `(bytes32 r, bytes32 s)`, `attestorKey` is two bytes32, and
+`anchorScan` takes `(bytes32 r, bytes32 s)`, `attestorKey` is two bytes32, and
 `_verifyP256` staticcalls `0x100` with `hash‖r‖s‖x‖y`. Failure is surfaced as `BadSignature`
 rather than a bubbled revert, and empty returndata (the RIP-7212 failure encoding) counts as
 failure — verified in the local-EVM test, where no precompile exists at `0x100`.
