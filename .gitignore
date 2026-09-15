@@ -11,3 +11,4 @@ logs/
 .*.bak
 port/
 *.pre-cleanup
+SUBMISSION_COPY.md
