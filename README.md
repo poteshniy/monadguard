@@ -5,7 +5,7 @@ Scan a tool **before** an agent connects to it → signed receipt → anchored o
 queryable trust history.
 
 Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & AI Infrastructure)
-+ 
+
 ---
 
 ## Architecture
@@ -38,7 +38,7 @@ Nothing is duplicated for the sake of looking busy.
   trust/identity track will poke exactly there.
 - **`toolId` ≠ `contentHash`.** `toolId` is the tool's stable identity; `contentHash` is the
   specific manifest version scanned. A tool accumulating versions over time *is* the trust
-  history. The concept doc conflated these — it would have collapsed history to one row per
+  history.
   manifest revision.
 - **Timestamps from `block.timestamp`,** never calldata. A caller-supplied `ts` proves nothing.
 - **History in events, not storage.** Storage holds only the O(1) "latest" pointer for on-chain
@@ -163,8 +163,7 @@ not hand out an RPC key or the attestor's private key with it.
 | Monad mainnet | **143** | GOLD |
 | Monad testnet | **10143** | GOLD |
 
-The concept doc said "Monad chain id 143 (testnet)". **143 is mainnet; testnet is 10143.**
-The track deliverables allow either. **Locked to testnet 10143** — free gas, and batch
+**Locked to testnet 10143** — free gas, and batch
 anchoring for the demo would otherwise cost real MON.
 
 ---
@@ -194,8 +193,6 @@ the RIP-7212 / EIP-7951 `P256VERIFY` precompile at `0x0000...0100` (160-byte inp
 hash ‖ r ‖ s ‖ x ‖ y; returns 1 on success). Signing receipts on P-256 lets `anchorScan`
 **verify the attestor's signature on-chain** rather than record a hash of it: you cannot
 anchor a verdict you did not sign. Ed25519 has no such precompile.
-
-Trade-off accepted: this breaks "port `jws.js` as-is". `jws.js` moves from EdDSA to ES256.
 
 **DONE.** `anchorScan` takes `(bytes32 r, bytes32 s)`, `attestorKey` is two bytes32, and
 `_verifyP256` staticcalls `0x100` with `hash‖r‖s‖x‖y`. Failure is surfaced as `BadSignature`
