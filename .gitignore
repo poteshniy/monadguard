@@ -10,3 +10,4 @@ logs/
 *.bak
 .*.bak
 port/
+*.pre-cleanup
