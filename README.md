@@ -39,7 +39,7 @@ Nothing is duplicated for the sake of looking busy.
 - **`toolId` ≠ `contentHash`.** `toolId` is the tool's stable identity; `contentHash` is the
   specific manifest version scanned. A tool accumulating versions over time *is* the trust
   history.
-  manifest revision.
+ 
 - **Timestamps from `block.timestamp`,** never calldata. A caller-supplied `ts` proves nothing.
 - **History in events, not storage.** Storage holds only the O(1) "latest" pointer for on-chain
   reads (`isCleared` lets another contract gate on a fresh CLEAN verdict).
