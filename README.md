@@ -30,6 +30,30 @@ manifest text
 Chain holds the tamper-evident index. Receipts live off-chain. Aggregation lives in Envio.
 Nothing is duplicated for the sake of looking busy.
 
+## Relationship to ERC-8004
+
+Complementary, not competing. ERC-8004 gives *agents* identity and reputation. MonadGuard
+records attestations about the *tools those agents connect to* — the other half of the same
+trust graph. An attestor in MonadGuard can itself be an ERC-8004 agent, which is the natural
+composition: a registered agent whose job is scanning, whose findings are on the same chain
+as its identity.
+
+## Who adopts this, and why not roll their own
+
+- **Agent runtimes and MCP clients** — a pre-connect gate. One RPC read (`isCleared`) or one
+  GraphQL query before a tool is added to the context. They will not build this themselves
+  because a scanner is not their product and a private registry has no network effect.
+- **MCP registries and marketplaces** — a trust badge with provenance a user can verify
+  independently, rather than a self-issued claim from the marketplace itself.
+- **Enterprise agent platforms** — an audit trail with third-party attestation, which is
+  exactly what an internal scan cannot provide.
+- **On-chain agents on Monad** — the only way to gate tool use from inside a contract.
+
+The reason not to roll your own is the same reason nobody runs a private CVE database: a
+scan you keep to yourself is a private opinion. The registry's value is that it is shared,
+signed, and cross-organisational, and it compounds with every attestor added. Rolling your
+own gets you the 20% that is easy and none of the 80% that matters.
+
 ## Contract design decisions
 
 - **Permissionless anchoring.** Anyone can attest; `msg.sender` is recorded as the attestor.
