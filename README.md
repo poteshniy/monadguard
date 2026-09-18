@@ -6,6 +6,25 @@ queryable trust history.
 
 Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & AI Infrastructure)
 
+[![test](https://github.com/poteshniy/monadguard/actions/workflows/test.yml/badge.svg)](https://github.com/poteshniy/monadguard/actions/workflows/test.yml)
+
+## Live on Monad testnet (chain 10143)
+
+| | |
+|---|---|
+| `ScanRegistry` | [`0xd0f6edd9be9cde91f671f4c2e129ee6105358436`](https://testnet.monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436) — deployed at block 61019528 |
+| First anchor | [block 61019661](https://testnet.monadvision.com/tx/0xa4fd862f04f98843dd57d921ff3a2b644101474b43bd85bce7637f64e0d35612) — P-256 signature verified on-chain by the `P256VERIFY` precompile |
+| Attestor | `0x79732eE50342D093402F7D5731d689D11E61c423` |
+| API | https://api.monadguard.com/health |
+| GraphQL (Envio HyperIndex) | https://graphql.monadguard.com/v1/graphql |
+
+Check it yourself — no keys, no clone:
+
+```bash
+curl -s https://graphql.monadguard.com/v1/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ Scan { blockNumber verdict score txHash } Tool { id scanCount criticalCount } }"}'
+```
+
 ---
 
 ## Architecture
