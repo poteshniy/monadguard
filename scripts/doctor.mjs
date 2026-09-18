@@ -209,6 +209,19 @@ if (existsSync(cfgPath)) {
   }
 }
 
+// ── 10. Envio token ───────────────────────────────────────────────────────
+const idxEnv = `${root}/indexer/.env`;
+const tokenLine = existsSync(idxEnv) && readFileSync(idxEnv, 'utf8').split('\n').find((l) => /^\s*ENVIO_API_TOKEN\s*=\s*\S+/.test(l));
+tokenLine || process.env.ENVIO_API_TOKEN
+  ? ok('ENVIO_API_TOKEN', 'set — HyperSync available')
+  : warn('ENVIO_API_TOKEN', 'missing in indexer/.env — HyperSync refuses, indexer falls back or stalls');
+
+// ── 11. Public surface (read-only; skip with DOCTOR_OFFLINE=1) ────────────
+if (!process.env.DOCTOR_OFFLINE) {
+  const { publicChecks } = await import('./public-checks.mjs');
+  for (const r of await publicChecks()) add(r.state, r.name, r.detail);
+}
+
 // ── Report ────────────────────────────────────────────────────────────────
 const pad = Math.max(...rows.map((r) => r.name.length));
 console.log('');
