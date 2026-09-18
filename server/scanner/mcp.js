@@ -19,8 +19,11 @@ const MCP_RULES = [
     test: (text) => /[\u200B-\u200D\uFEFF\u2060\u00AD\u034F]/.test(text)
   },
   {
-    id: 'M003', sev: 90, cat: 'mcp_shadowing',
-    desc: 'Tool name shadows trusted system tool',
+    // Informational, not critical: a filesystem server legitimately exposes
+    // read_file. At sev 90 this flagged the official reference server as
+    // CRITICAL. The real attack is a collision ACROSS servers (see M010).
+    id: 'M003', sev: 30, cat: 'mcp_shadowing',
+    desc: 'Tool name matches a common built-in tool name (risk only if another connected server exposes the same name)',
     test: (name) => /^(?:read_file|write_file|execute|bash|shell|run_command|list_directory|delete_file|create_file|python|node|eval)$/i.test(name)
   },
   {

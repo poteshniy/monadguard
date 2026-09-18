@@ -25,6 +25,7 @@ import { toolId as deriveToolId, contentHash as deriveContentHash } from '../scr
 import { loadAttestor, publicAttestor } from './keys.js';
 import * as db from './db.js';
 import * as chain from './chain.js';
+import * as envio from './envio.js';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
@@ -193,30 +194,50 @@ app.get('/receipt/:hash', (c) => {
   return c.text(row.receipt_jws, 200, { 'content-type': 'application/jose' });
 });
 
+const withLocal = (s) => {
+  const row = db.getScan(s.receiptHash);
+  return { ...s, findings: row ? JSON.parse(row.findings_json) : null };
+};
+const toolMeta = (id) => {
+  const t = db.getTool(id);
+  return t ? { name: t.name, kind: t.kind, origin: t.origin } : null;
+};
+
 app.get('/registry/:toolId', async (c) => {
-  const toolId = c.req.param('toolId');
-  const tool = db.getTool(toolId);
+  const toolId = c.req.param('toolId').toLowerCase();
+  try {
+    const { tool, scans } = await envio.toolHistory(toolId);
+    if (tool) {
+      return c.json({ toolId, meta: toolMeta(toolId), tool, scans: scans.map(withLocal), source: 'envio' });
+    }
+  } catch (e) {
+    c.header('x-envio-error', String(e.message).slice(0, 120));
+  }
+  // Fallback: indexer down or not caught up yet. Say so instead of pretending.
   const scans = db.scansForTool(toolId).map((s) => ({
     contentHash: s.content_hash, verdict: s.verdict, score: s.score,
     receiptHash: s.receipt_hash, receiptURI: s.receipt_uri,
-    scannedAt: s.created_at, anchorTx: s.anchor_tx, anchorState: s.anchor_state,
+    scannedAt: s.created_at, txHash: s.anchor_tx, anchorState: s.anchor_state,
+    findings: JSON.parse(s.findings_json),
   }));
-  const out = { toolId, tool: tool ?? null, scans, source: 'local-cache' };
-
-  // Chain is authoritative; the cache is just faster and available pre-confirmation.
-  if (chain.REGISTRY) {
-    try {
-      out.onChain = { totalScans: Number(await chain.toolScanCount(toolId)) };
-    } catch { /* RPC down: cache still answers */ }
-  }
-  return c.json(out);
+  if (!scans.length) return c.json({ toolId, error: 'no scans for this tool' }, 404);
+  return c.json({ toolId, meta: toolMeta(toolId), tool: null, scans, source: 'local-cache' });
 });
 
-app.get('/registry', (c) => c.json({
-  stats: db.stats(),
-  tools: db.recentTools(Number(c.req.query('limit') ?? 25)),
-  note: 'local cache; cross-attestor aggregates come from the Envio GraphQL endpoint',
-}));
+app.get('/registry', async (c) => {
+  const limit = Math.min(100, Number(c.req.query('limit') ?? 25));
+  try {
+    const d = await envio.tools(limit);
+    return c.json({
+      source: 'envio',
+      graphql: process.env.PUBLIC_GRAPHQL_URL ?? 'https://graphql.monadguard.com/v1/graphql',
+      attestors: d.Attestor,
+      tools: d.Tool.map((t) => ({ ...t, meta: toolMeta(t.id) })),
+    });
+  } catch (e) {
+    return c.json({ source: 'local-cache', envioError: e.message, stats: db.stats(), tools: db.recentTools(limit) });
+  }
+});
 
 serve({ fetch: app.fetch, port: PORT }, (i) => {
   console.log(`MonadGuard API on :${i.port}  chain ${chain.CHAIN_ID}  registry ${chain.REGISTRY ?? '(not deployed)'}`);
