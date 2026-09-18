@@ -14,7 +14,8 @@
     "hooks": "node scripts/check-secrets.mjs --install-hook",
     "secrets": "node scripts/check-secrets.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "check:public": "node scripts/check-public.mjs"
+    "check:public": "node scripts/check-public.mjs",
+    "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",
