@@ -8,6 +8,7 @@
  * Never anchor a CRITICAL verdict on a real third-party tool without reading the
  * findings first: an on-chain verdict is permanent.
  */
+import '../server/env.js';
 import { readFileSync } from 'node:fs';
 import { scanMCP } from '../server/scanner/mcp.js';
 import { scan } from '../server/scanner/engine.js';
@@ -41,7 +42,8 @@ for (const e of entries) {
       let tx = s.anchor?.tx;
       if (!tx) {
         const a = await fetch(`${API}/anchor`, {
-          method: 'POST', headers: { 'content-type': 'application/json' },
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN ?? '' },
           body: JSON.stringify({ receiptHash: s.receipt.hash }),
         }).then((x) => x.json());
         if (!a.ok && !a.already) throw new Error(a.error ?? 'anchor failed');
