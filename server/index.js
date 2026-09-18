@@ -30,6 +30,18 @@ import * as envio from './envio.js';
 const PORT = Number(process.env.PORT ?? 8787);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 const AUTO_ANCHOR = process.env.AUTO_ANCHOR === '1';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || null;
+
+// Per-IP fixed window. Scanning is CPU-only but public; a hackathon Discord
+// will poke it. nginx must pass X-Real-IP, otherwise everyone shares one bucket.
+const RATE = Number(process.env.RATE_PER_MIN ?? 30);
+const hits = new Map();
+const limited = (ip) => {
+  const w = Math.floor(Date.now() / 60000), k = `${ip}:${w}`;
+  const n = (hits.get(k) ?? 0) + 1; hits.set(k, n);
+  if (hits.size > 5000) for (const key of hits.keys()) if (!key.endsWith(`:${w}`)) hits.delete(key);
+  return n > RATE;
+};
 
 const key = loadAttestor({ allowDevKey: process.env.NODE_ENV !== 'production' });
 const app = new Hono();
@@ -68,6 +80,14 @@ app.post('/scan/free', async (c) => {
 });
 
 // ─── Full scan -> receipt ─────────────────────────────────────────────────
+app.use('/scan/*', async (c, next) => rl(c, next));
+app.use('/anchor/*', async (c, next) => rl(c, next));
+async function rl(c, next) {
+  const ip = c.req.header('x-real-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? 'direct';
+  if (limited(ip)) return c.json({ error: 'rate limited, try again in a minute' }, 429);
+  return next();
+}
+
 app.post('/scan', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const { kind = 'skill', name, origin, content, manifest } = body;
@@ -100,6 +120,10 @@ app.post('/scan', async (c) => {
     receipt_uri: receiptURI,
     created_at: payload.issued_at,
   });
+  // Public scans stay off-chain. Otherwise the worker (which holds the server
+  // key) would anchor anything anyone POSTs: gas drain + registry spam under
+  // our attestor. Anchoring is an explicit act: operator token or own passkey.
+  if (!AUTO_ANCHOR) db.setState(receiptHash, 'unanchored');
 
   const response = {
     tool,
@@ -146,6 +170,9 @@ app.post('/anchor', async (c) => {
   if (row.anchor_state === 'confirmed') return c.json({ ok: true, already: true, tx: row.anchor_tx });
   if (!chain.REGISTRY) return c.json({ error: 'registry address unknown — deploy first' }, 503);
   if (!signature && !key) return c.json({ error: 'signature required: this node holds no attestor key' }, 400);
+  if (!signature && (!ADMIN_TOKEN || c.req.header('x-admin-token') !== ADMIN_TOKEN)) {
+    return c.json({ error: 'server-key anchoring is operator-only; sign with your own attestor key instead' }, 403);
+  }
 
   try {
     const tx = await chain.anchorScan({
