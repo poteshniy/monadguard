@@ -14,6 +14,7 @@
  * key is only used when MONADGUARD_PRF_HEX is set, i.e. headless demo and CI.
  */
 import './env.js';
+import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { scan } from './scanner/engine.js';
@@ -223,7 +224,7 @@ app.get('/receipt/:hash', (c) => {
 
 const withLocal = (s) => {
   const row = db.getScan(s.receiptHash);
-  return { ...s, findings: row ? JSON.parse(row.findings_json) : null };
+  return { ...s, findings: row ? withFixes(JSON.parse(row.findings_json)) : null };
 };
 const toolMeta = (id) => {
   const t = db.getTool(id);
@@ -245,7 +246,7 @@ app.get('/registry/:toolId', async (c) => {
     contentHash: s.content_hash, verdict: s.verdict, score: s.score,
     receiptHash: s.receipt_hash, receiptURI: s.receipt_uri,
     scannedAt: s.created_at, txHash: s.anchor_tx, anchorState: s.anchor_state,
-    findings: JSON.parse(s.findings_json),
+    findings: withFixes(JSON.parse(s.findings_json)),
   }));
   if (!scans.length) return c.json({ toolId, error: 'no scans for this tool' }, 404);
   return c.json({ toolId, meta: toolMeta(toolId), tool: null, scans, source: 'local-cache' });
@@ -258,6 +259,7 @@ app.get('/registry', async (c) => {
     return c.json({
       source: 'envio',
       graphql: process.env.PUBLIC_GRAPHQL_URL ?? 'https://graphql.monadguard.com/v1/graphql',
+      cloudGraphql: process.env.ENVIO_CLOUD_GRAPHQL_URL ?? null,
       attestors: d.Attestor,
       tools: d.Tool.map((t) => ({ ...t, meta: toolMeta(t.id) })),
     });
@@ -266,8 +268,29 @@ app.get('/registry', async (c) => {
   }
 });
 
-serve({ fetch: app.fetch, port: PORT }, (i) => {
-  console.log(`MonadGuard API on :${i.port}  chain ${chain.CHAIN_ID}  registry ${chain.REGISTRY ?? '(not deployed)'}`);
+// ─── Site ─────────────────────────────────────────────────────────────────
+// One static page, served by the API itself so it shares the origin: no CORS,
+// and the passkey rpId (monadguard.com) is the page's own host.
+const SITE = new URL('../web/index.html', import.meta.url);
+const CSP = [
+  "default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:", "connect-src 'self'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
+].join('; ');
+app.get('/', (c) => {
+  let html;
+  try { html = readFileSync(SITE, 'utf8'); } catch { return c.text('site not built', 404); }
+  return c.html(html, 200, {
+    'content-security-policy': CSP,
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'cache-control': 'public, max-age=60',
+  });
+});
+
+// Loopback only: nginx is the sole way in. Set HOST=0.0.0.0 only for local dev.
+const HOST = process.env.HOST ?? '127.0.0.1';
+serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (i) => {
+  console.log(`MonadGuard API on ${HOST}:${i.port}  chain ${chain.CHAIN_ID}  registry ${chain.REGISTRY ?? '(not deployed)'}`);
   console.log(`attestor ${key ? key.publicKeyUncompressed.slice(0, 26) + '… (' + key.source + ')' : 'none — browser-signed anchors only'}`);
 });
 

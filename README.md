@@ -15,13 +15,17 @@ Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & A
 | `ScanRegistry` | [`0xd0f6edd9be9cde91f671f4c2e129ee6105358436`](https://testnet.monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436) — deployed at block 61019528 |
 | First anchor | [block 61019661](https://testnet.monadvision.com/tx/0xa4fd862f04f98843dd57d921ff3a2b644101474b43bd85bce7637f64e0d35612) — P-256 signature verified on-chain by the `P256VERIFY` precompile |
 | Attestor | `0x79732eE50342D093402F7D5731d689D11E61c423` |
+| **Registry site** | **https://monadguard.com** — browse trust history, check a manifest |
 | API | https://api.monadguard.com/health |
-| GraphQL (Envio HyperIndex) | https://graphql.monadguard.com/v1/graphql |
+| GraphQL — Envio Cloud | https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql (hosted by Envio, independent of our server) |
+| GraphQL — self-hosted | https://graphql.monadguard.com/v1/graphql (read-only: `POST /v1/graphql` only) |
+
+The two indexes are built independently from the same contract events and return identical data.
 
 Check it yourself — no keys, no clone:
 
 ```bash
-curl -s https://graphql.monadguard.com/v1/graphql -H 'content-type: application/json' \
+curl -s https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql -H 'content-type: application/json' \
   -d '{"query":"{ Scan { blockNumber verdict score txHash } Tool { id scanCount criticalCount } }"}'
 ```
 
@@ -184,6 +188,11 @@ not hand out an RPC key or the attestor's private key with it.
 | `MONADGUARD_PRF_HEX` | 32 bytes standing in for the passkey PRF output — **headless/CI only**; in production the browser holds this |
 | `AUTO_ANCHOR=1` | `/scan` anchors immediately instead of returning a pending anchor |
 | `BASE_URL` | public origin used to build `receiptURI` |
+| `ADMIN_TOKEN` | required (`x-admin-token`) for `POST /anchor` without a signature, i.e. anchoring with the server key |
+| `RATE_PER_MIN` | per-IP limit for `/scan*` and `/anchor*` (default 30) |
+| `HOST` | bind address, default `127.0.0.1` — the reverse proxy is the only way in |
+| `ENVIO_GRAPHQL_URL` | indexer the API reads trust history from (default the local Hasura) |
+| `ENVIO_CLOUD_GRAPHQL_URL` | public Envio Cloud endpoint shown on the site |
 
 ### API
 
@@ -195,9 +204,30 @@ not hand out an RPC key or the attestor's private key with it.
 | `POST /anchor` | `{receiptHash, signature?}` → anchor tx now. Omit `signature` only on a node holding a key |
 | `POST /anchor/queue` | `{receiptHash, signature}` → hand it to the batch worker instead of paying for a tx per scan |
 | `GET /receipt/:hash` | the JWS (`application/jose`) — what `receiptURI` points at |
-| `GET /registry/:toolId` | trust history from the local cache + on-chain scan count |
+| `GET /` | the registry site (`web/index.html`), same origin as the API — no CORS, and the passkey `rpId` is the page's own host |
+| `GET /registry` | all tools with their latest verdict, from Envio |
+| `GET /registry/:toolId` | full trust history from Envio, plus findings and names from the attestor's cache |
 | `GET /health` | chain, attestor, and a live P256VERIFY preflight |
 | `GET /.well-known/jwks.json` | P-256 public key, so receipts verify without trusting this API |
+
+### Public API rules
+
+- A public `POST /scan` returns a signed receipt but is **never anchored** by this node. Otherwise
+  anyone could spend our gas and write under our attestor identity.
+- Anchoring happens only with an attestor signature: your own `{r,s}` via `/anchor` or `/anchor/queue`
+  (the passkey path), or the server key behind `ADMIN_TOKEN`.
+- Rate limited per IP. The API listens on loopback only; nginx is the single entry point.
+
+### Known limitations
+
+- **The contract does not deduplicate `receiptHash`.** Only a registered attestor can anchor, and
+  only under its own key, so nobody can inflate another attestor's record. An attestor could
+  re-anchor its own receipts — but it could equally issue fresh ones, so dedup would not add
+  protection. Consumers should weigh attestors, not raw scan counts.
+- **Findings live off-chain.** The chain holds verdict, score and the receipt hash; the full
+  findings are in the signed receipt at `receiptURI`, served by the attestor.
+- **Static analysis.** Rules catch known patterns in manifests and skill text. They do not execute
+  the tool, and a clean verdict is not a guarantee.
 
 ## Networks
 

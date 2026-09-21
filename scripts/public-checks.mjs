@@ -48,5 +48,26 @@ export async function publicChecks() {
     else add('OK', 'public graphql', `${n} scans, ${r.data.Tool.length} tools`);
   } catch (e) { add('FAIL', 'public graphql', e.message); }
 
+  // Envio Cloud: independent index, must agree with ours.
+  const CLOUD = process.env.PUBLIC_ENVIO_CLOUD_URL ?? 'https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql';
+  try {
+    const body = JSON.stringify({ query: '{ Scan { id verdict score } }' });
+    const get = (u) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(8000) }).then((r) => r.json());
+    const [c, s] = await Promise.all([get(CLOUD), get(GQL)]);
+    const sig = (d) => (d?.data?.Scan ?? []).map((x) => `${x.id}:${x.verdict}:${x.score}`).sort().join();
+    if (!c?.data) add('FAIL', 'envio cloud', `${CLOUD} not answering — redeployed? update PUBLIC_ENVIO_CLOUD_URL`);
+    else if (sig(c) === sig(s)) add('OK', 'envio cloud', `${c.data.Scan.length} scans, identical to self-hosted`);
+    else add('WARN', 'envio cloud', `differs from self-hosted (${c.data.Scan.length} vs ${s?.data?.Scan?.length ?? '?'}) — one is still syncing?`);
+  } catch (e) { add('WARN', 'envio cloud', e.message); }
+
+  // The site itself.
+  try {
+    const r = await fetch(API.replace('api.', ''), { signal: AbortSignal.timeout(8000) });
+    const html = await r.text();
+    r.ok && html.includes('MonadGuard')
+      ? add('OK', 'site', `${API.replace('api.', '')} serves the registry page`)
+      : add('FAIL', 'site', `${r.status} — page missing`);
+  } catch (e) { add('FAIL', 'site', e.message); }
+
   return rows;
 }
