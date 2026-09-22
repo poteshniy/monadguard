@@ -222,9 +222,13 @@ app.get('/receipt/:hash', (c) => {
   return c.text(row.receipt_jws, 200, { 'content-type': 'application/jose' });
 });
 
+// receiptURI on-chain is a hint; the receipt is content-addressed by its hash,
+// so this node always serves it at a public URL (early anchors carry a dev URI).
+const receiptURL = (hash) => (hash ? `${BASE_URL}/receipt/${hash}` : null);
+
 const withLocal = (s) => {
   const row = db.getScan(s.receiptHash);
-  return { ...s, findings: row ? withFixes(JSON.parse(row.findings_json)) : null };
+  return { ...s, receiptURL: row ? receiptURL(s.receiptHash) : null, findings: row ? withFixes(JSON.parse(row.findings_json)) : null };
 };
 const toolMeta = (id) => {
   const t = db.getTool(id);
@@ -244,7 +248,7 @@ app.get('/registry/:toolId', async (c) => {
   // Fallback: indexer down or not caught up yet. Say so instead of pretending.
   const scans = db.scansForTool(toolId).map((s) => ({
     contentHash: s.content_hash, verdict: s.verdict, score: s.score,
-    receiptHash: s.receipt_hash, receiptURI: s.receipt_uri,
+    receiptHash: s.receipt_hash, receiptURI: s.receipt_uri, receiptURL: receiptURL(s.receipt_hash),
     scannedAt: s.created_at, txHash: s.anchor_tx, anchorState: s.anchor_state,
     findings: withFixes(JSON.parse(s.findings_json)),
   }));

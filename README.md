@@ -218,6 +218,16 @@ not hand out an RPC key or the attestor's private key with it.
   (the passkey path), or the server key behind `ADMIN_TOKEN`.
 - Rate limited per IP. The API listens on loopback only; nginx is the single entry point.
 
+### Backups
+
+Everything that is not on-chain — signed receipts and findings (`data/monadguard.db`), the attestor
+identity and keys (`.env`) — is backed up nightly by `scripts/backup.sh`: consistent SQLite snapshot
+via the online backup API, AES-256 (PBKDF2, 600k iterations) before it leaves the server, verified
+to decrypt, pushed to a private repo with a deploy key scoped to that repo only, last 14 kept.
+
+The passphrase lives in `/root/.monadguard-backup.pass` **and** in the operator's password manager.
+Without the second copy a lost server means unreadable backups.
+
 ### Known limitations
 
 - **The contract does not deduplicate `receiptHash`.** Only a registered attestor can anchor, and
@@ -226,6 +236,11 @@ not hand out an RPC key or the attestor's private key with it.
   protection. Consumers should weigh attestors, not raw scan counts.
 - **Findings live off-chain.** The chain holds verdict, score and the receipt hash; the full
   findings are in the signed receipt at `receiptURI`, served by the attestor.
+- **The first anchors carry a development `receiptURI`** (`http://localhost:8787/receipt/…`).
+  On-chain data is immutable, so they stay that way. Receipts are content-addressed: every one is
+  served at `https://api.monadguard.com/receipt/<receiptHash>`, and the API returns that as
+  `receiptURL` next to the on-chain `receiptURI`. Anchors made after the fix carry the public URI,
+  and `npm run doctor` fails in production if `BASE_URL` points at localhost.
 - **Static analysis.** Rules catch known patterns in manifests and skill text. They do not execute
   the tool, and a clean verdict is not a guarantee.
 

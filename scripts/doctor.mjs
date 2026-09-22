@@ -64,6 +64,13 @@ if (existsSync(`${root}/build/ScanRegistry.json`)) {
 // ── 3. Environment ────────────────────────────────────────────────────────
 existsSync(envPath) ? ok('.env', 'present') : warn('.env', 'missing — using process env only');
 
+const BASE_URL = process.env.BASE_URL ?? '';
+if (!BASE_URL) warn('BASE_URL', 'unset — receiptURI falls back to http://localhost, which is written on-chain permanently');
+else if (/localhost|127\.0\.0\.1/.test(BASE_URL)) {
+  (process.env.NODE_ENV === 'production' ? fail : warn)('BASE_URL', `${BASE_URL} — every anchor would carry this URI on-chain forever. Set https://api.monadguard.com`);
+} else if (!BASE_URL.startsWith('https://')) warn('BASE_URL', `${BASE_URL} — not https`);
+else ok('BASE_URL', BASE_URL);
+
 const CHAIN_ID = Number(process.env.CHAIN_ID ?? 10143);
 const prf = process.env.MONADGUARD_PRF_HEX;
 if (!prf) {

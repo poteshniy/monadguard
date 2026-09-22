@@ -48,6 +48,22 @@ export async function publicChecks() {
     else add('OK', 'public graphql', `${n} scans, ${r.data.Tool.length} tools`);
   } catch (e) { add('FAIL', 'public graphql', e.message); }
 
+  const FIXED_AT = 1790073300; // 2026-09-22 10:35 UTC, BASE_URL set to the public origin
+  // URIs written on-chain must be public. Anchors before 2026-09-22 carry a dev
+  // URI (known, documented); any NEWER one pointing at localhost is a regression.
+  try {
+    const r = await gql('{ Attestor { id metaURI } Scan(order_by:{blockNumber:desc}, limit:1) { blockNumber timestamp receiptURI } }');
+    const bad = (u) => /localhost|127\.0\.0\.1/.test(u ?? '');
+    const last = r?.data?.Scan?.[0];
+    const devAtt = (r?.data?.Attestor ?? []).filter((a) => bad(a.metaURI)).length;
+    if (last && bad(last.receiptURI) && Number(last.timestamp) > FIXED_AT) {
+      add('WARN', 'receipt URIs', `latest anchor (block ${last.blockNumber}) carries ${last.receiptURI.slice(0, 40)}… — check BASE_URL`);
+    } else if (last && bad(last.receiptURI)) {
+      add('OK', 'receipt URIs', 'only pre-fix anchors carry the dev URI (documented; served via receiptURL)');
+    } else add('OK', 'receipt URIs', last ? 'latest anchor carries a public URI' : 'no scans');
+    if (devAtt) add('WARN', 'attestor metaURI', `${devAtt} attestor(s) registered with a dev metaURI`);
+  } catch (e) { add('WARN', 'receipt URIs', e.message); }
+
   // Envio Cloud: independent index, must agree with ours.
   const CLOUD = process.env.PUBLIC_ENVIO_CLOUD_URL ?? 'https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql';
   try {
