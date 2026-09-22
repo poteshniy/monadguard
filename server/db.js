@@ -75,3 +75,20 @@ export const markAnchored = (receiptHash, tx, block, state = 'confirmed') =>
   stmts.markAnchor.run(tx, block, state, receiptHash);
 export const recentTools = (limit = 25) => stmts.recent.all(limit);
 export const stats = () => stmts.counts.get();
+
+const ext = {
+  put: db.prepare(`INSERT OR IGNORE INTO external_receipts
+    (receipt_hash, jws, tool_id, attestor_x, attestor_y, findings_json, created_at)
+    VALUES (@receipt_hash, @jws, @tool_id, @attestor_x, @attestor_y, @findings_json, @created_at)`),
+  get: db.prepare('SELECT * FROM external_receipts WHERE receipt_hash = ?'),
+  grant: db.prepare('INSERT INTO faucet_grants (address, ip, tx, created_at) VALUES (?, ?, ?, ?)'),
+  granted: db.prepare('SELECT * FROM faucet_grants WHERE address = ?'),
+  grantsSince: db.prepare('SELECT COUNT(*) AS n FROM faucet_grants WHERE created_at > ?'),
+  grantsByIpSince: db.prepare('SELECT COUNT(*) AS n FROM faucet_grants WHERE ip = ? AND created_at > ?'),
+};
+export const putExternalReceipt = (r) => ext.put.run({ ...r, created_at: Math.floor(Date.now() / 1000) });
+export const getExternalReceipt = (hash) => ext.get.get(hash);
+export const faucetGranted = (address) => ext.granted.get(address.toLowerCase());
+export const faucetGrantsSince = (ts) => ext.grantsSince.get(ts).n;
+export const faucetGrantsByIpSince = (ip, ts) => ext.grantsByIpSince.get(ip, ts).n;
+export const recordFaucetGrant = (address, ip, tx) => ext.grant.run(address.toLowerCase(), ip, tx, Math.floor(Date.now() / 1000));

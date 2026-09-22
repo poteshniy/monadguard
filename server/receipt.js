@@ -54,7 +54,14 @@ export function toGate(level, score) {
   return { gate: 'halt', confidence: 0.0 };
 }
 
-const b64url = (buf) => Buffer.from(buf).toString('base64url');
+// Portable base64url: this module is also bundled into the browser (passkey
+// attestor), where Buffer does not exist. btoa is global in Node 16+ too.
+const b64url = (input) => {
+  const bytes = typeof input === 'string' ? utf8ToBytes(input) : input;
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
 const strip = (hex) => hex.slice(2).padStart(64, '0');
 
 // ─────────────────────────────────────────────────────────────

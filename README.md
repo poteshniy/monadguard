@@ -53,6 +53,26 @@ manifest text
 Chain holds the tamper-evident index. Receipts live off-chain. Aggregation lives in Envio.
 Nothing is duplicated for the sake of looking busy.
 
+## Passkey attestors — one passkey, many keys (mera)
+
+Anyone can become an independent attestor at https://monadguard.com with nothing but a passkey.
+One user-verified PRF evaluation through [`@category-labs/mera`](https://github.com/category-labs/mera)
+yields 32 stable bytes; two keys are derived from them, domain-separated:
+
+| key | curve | job |
+|---|---|---|
+| attestor key | P-256 | signs the receipt (JWS) and the anchor digest; `ScanRegistry` checks it on-chain with the **P256VERIFY** precompile |
+| account key | secp256k1 (mera signing session → `toViemAccount`) | the `msg.sender` that registers the P-256 key and sends anchors |
+
+The whole path runs in the browser: scan → sign receipt → publish it (content-addressed, the
+server verifies the JWS against the key inside it) → anchor. No wallet, no seed phrase, no server
+key. A synced passkey (Google Password Manager, iCloud Keychain) gives the **same** attestor on
+every device; creating a second passkey gives a different one.
+
+Server support: `POST /receipt` (publish a receipt signed by any attestor), `POST /rpc` (JSON-RPC
+proxy, allow-listed methods, keeps the RPC key server-side), `POST /faucet` (one-time testnet gas
+per new attestor address, daily caps). Source: `web/src/passkey.js`, bundle: `npm run build:web`.
+
 ## Relationship to ERC-8004
 
 Complementary, not competing. ERC-8004 gives *agents* identity and reputation. MonadGuard

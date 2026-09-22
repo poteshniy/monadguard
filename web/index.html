@@ -148,6 +148,21 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .copy:hover { color: var(--text); }
 pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 12.5px/1.6 var(--mono); color: var(--text); }
 
+/* passkey attestor */
+.keys { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 10px; padding: 18px; border-bottom: 1px solid var(--border); }
+.key { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+.key b { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.key span { color: var(--muted); font-size: 12.5px; }
+.arrow { color: var(--faint); font-size: 18px; }
+.pk-body { padding: 18px; }
+.pk-steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.pk-steps li { color: var(--muted); }
+.pk-steps li.done { color: var(--clean); }
+.pk-steps li.active { color: var(--text); }
+.pk-steps li.fail { color: var(--crit); }
+.linkbtn { background: none; border: 0; color: var(--accent); font: inherit; font-size: 13.5px; cursor: pointer; padding: 0; }
+@media (max-width: 760px) { .keys { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); justify-self: center; } }
+
 footer { border-top: 1px solid var(--border); padding: 22px 0 40px; color: var(--faint); font-size: 13px; }
 footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
 
@@ -174,6 +189,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
     <nav>
       <a href="#registry">Registry</a>
       <a href="#check">Check a tool</a>
+      <a href="#attest">Attest</a>
       <a href="#verify">Verify</a>
       <a href="https://github.com/poteshniy/monadguard" rel="noopener">GitHub</a>
     </nav>
@@ -216,7 +232,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
 
   <section id="check">
     <h2>Check a tool</h2>
-    <p class="sub">Paste an MCP server's <code>tools/list</code> output or a SKILL.md. You get the verdict and a signed receipt; nothing is written on-chain.</p>
+    <p class="sub">Paste an MCP server's <code>tools/list</code> output or a SKILL.md. <b>Scan</b> returns the verdict and a signed receipt and writes nothing on-chain. With a passkey attestor unlocked below, <b>Sign &amp; anchor</b> scans in your browser and puts your verdict on Monad.</p>
     <div class="panel">
       <form class="form" id="scanform">
         <div class="grid2">
@@ -230,10 +246,28 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
         <div class="row">
           <button class="btn" id="f-go" type="submit">Scan</button>
           <button class="btn ghost" type="button" id="f-example">Load a poisoned example</button>
+          <button class="btn ghost" type="button" id="f-anchor" hidden>Sign &amp; anchor with my passkey</button>
           <span class="hint" id="f-kind">Detected: –</span>
         </div>
       </form>
       <div class="result" id="result" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="attest">
+    <h2>Attest with a passkey</h2>
+    <p class="sub">Become an independent attestor with nothing but a passkey. One fingerprint unlocks two keys — no wallet, no seed phrase, no server key.</p>
+    <div class="panel">
+      <div class="keys" aria-hidden="true">
+        <div class="key"><b>Passkey</b><span>PRF output via mera, bound to monadguard.com</span></div>
+        <div class="arrow">→</div>
+        <div class="key"><b>P-256 attestor key</b><span>signs receipts; verified on-chain by P256VERIFY</span></div>
+        <div class="arrow">+</div>
+        <div class="key"><b>EVM account</b><span>mera secp256k1 session; sends the transactions</span></div>
+      </div>
+      <div class="pk-body" id="pk">
+        <p class="hint" id="pk-msg">Loading…</p>
+      </div>
     </div>
   </section>
 
@@ -469,7 +503,122 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   });
 
   loadRegistry();
+  window.addEventListener('mg:reload', loadRegistry);
 })();
+</script>
+<script src="/passkey.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const P = window.MGPasskey;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const short = (h) => (h ? `${h.slice(0, 8)}…${h.slice(-6)}` : '');
+  const box = $('pk');
+  let st = null;
+
+  if (!P) { box.innerHTML = '<p class="err">Passkey module failed to load.</p>'; return; }
+
+  const locked = () => {
+    const off = !P.onDomain();
+    box.innerHTML = `
+      ${off ? `<div class="note" style="margin:0 0 14px">Passkeys are bound to <b>${P.RP_ID}</b>. Open this page at https://${P.RP_ID} to attest.</div>` : ''}
+      <div class="row" style="margin:0">
+        <button class="btn" id="pk-unlock" ${off ? 'disabled' : ''}>Use my passkey</button>
+        <button class="btn ghost" id="pk-create" ${off ? 'disabled' : ''}>Create a passkey</button>
+      </div>
+      <p class="hint" style="margin:12px 0 0">Already created one on another device? Choose <b>Use my passkey</b>: synced passkeys (Google Password Manager, iCloud Keychain) give the same attestor everywhere.
+      A second passkey would be a different attestor.</p>
+      <p class="err" id="pk-err" style="padding:10px 0 0;text-align:left" hidden></p>`;
+    $('pk-unlock').onclick = () => run(() => P.unlock());
+    $('pk-create').onclick = () => {
+      const again = P.hasRememberedPasskey();
+      const ok = confirm((again ? 'This browser has already used a MonadGuard passkey.\n\n' : '')
+        + 'Create a NEW passkey?\n\nDo this once. Every new passkey is a separate attestor identity. If you already have one on any synced device, press Cancel and use "Use my passkey".');
+      if (ok) run(() => P.create('MonadGuard attestor'));
+    };
+    $('f-anchor').hidden = true;
+  };
+
+  const fail = (e) => { const el = $('pk-err'); if (el) { el.hidden = false; el.textContent = P.errorMessage(e); } else alert(P.errorMessage(e)); };
+
+  async function run(fn) {
+    try { await fn(); await refresh(); } catch (e) { console.error(e); fail(e); }
+  }
+
+  async function refresh() {
+    st = await P.status();
+    if (!st) return locked();
+    const low = Number(st.balance) < 0.01;
+    box.innerHTML = `
+      <dl class="kv" style="padding:0 0 14px;border:0">
+        <dt>EVM account</dt><dd><a href="${P.explorer}/address/${esc(st.address)}" rel="noopener">${esc(st.address)}</a></dd>
+        <dt>P-256 attestor key</dt><dd>x ${esc(short(st.p256.x))} · y ${esc(short(st.p256.y))}</dd>
+        <dt>Balance</dt><dd>${esc(Number(st.balance).toFixed(4))} MON</dd>
+        <dt>On-chain attestor</dt><dd>${st.registered ? (st.keyMatches ? '<span class="badge v1">REGISTERED</span>' : '<span class="badge v3">KEY MISMATCH</span>') : '<span class="badge v0">NOT REGISTERED</span>'}</dd>
+      </dl>
+      <div class="row" style="margin:0">
+        ${low ? '<button class="btn" id="pk-gas">Get test MON</button>' : ''}
+        ${!st.registered && !low ? '<button class="btn" id="pk-reg">Register as attestor</button>' : ''}
+        ${st.registered ? '<a class="btn" href="#check" style="text-decoration:none">Scan &amp; anchor a tool ↑</a>' : ''}
+        <button class="btn ghost" id="pk-lock">Lock</button>
+      </div>
+      <ol class="pk-steps" id="pk-steps"></ol>
+      <p class="err" id="pk-err" style="padding:10px 0 0;text-align:left" hidden></p>`;
+    $('pk-lock').onclick = () => { P.lock(); locked(); };
+    if ($('pk-gas')) $('pk-gas').onclick = () => step('Requesting test gas…', () => P.requestGas());
+    if ($('pk-reg')) $('pk-reg').onclick = () => step('Registering P-256 key on-chain…', async () => {
+      const tx = await P.register(); return `registered in block ${tx.block}`;
+    });
+    $('f-anchor').hidden = !(st.registered && st.keyMatches);
+  }
+
+  async function step(label, fn) {
+    const ol = $('pk-steps'); const li = document.createElement('li');
+    li.className = 'active'; li.textContent = label; ol.appendChild(li);
+    try { const r = await fn(); li.className = 'done'; li.textContent = `${label} ${typeof r === 'string' ? r : 'done'}`; await refresh(); }
+    catch (e) { li.className = 'fail'; li.textContent = `${label} ${P.errorMessage(e)}`; }
+  }
+
+  // Anchor the manifest in the "Check a tool" form, signed by the passkey.
+  $('f-anchor').onclick = async () => {
+    const out = $('result'); out.className = 'result open';
+    const text = $('f-content').value.trim();
+    if (!text) { out.innerHTML = '<div class="err">Paste a manifest or skill text first.</div>'; return; }
+    let input;
+    if (text.startsWith('{')) {
+      try { let m = JSON.parse(text); if (m.result?.tools) m = m.result; input = { kind: 'mcp', manifest: m }; }
+      catch { out.innerHTML = '<div class="err">That looks like JSON but does not parse.</div>'; return; }
+    } else input = { kind: 'skill', content: $('f-content').value };
+    input.name = $('f-name').value.trim() || input.manifest?.name || 'pasted-tool';
+    input.origin = $('f-origin').value.trim() || 'paste:monadguard.com';
+    const labels = { scan: 'Scanning in your browser', sign: 'Signing receipt with your passkey key', publish: 'Publishing signed receipt', anchor: 'Anchoring on Monad (P256VERIFY)' };
+    out.innerHTML = '<ol class="pk-steps" id="an-steps" style="margin:0"></ol>';
+    const ol = $('an-steps'); let cur;
+    const btn = $('f-anchor'); btn.disabled = true;
+    try {
+      const r = await P.scanAndAnchor(input, (k) => {
+        if (cur) cur.className = 'done';
+        cur = document.createElement('li'); cur.className = 'active'; cur.textContent = labels[k]; ol.appendChild(cur);
+      });
+      cur.className = 'done';
+      const V = ['UNKNOWN', 'CLEAN', 'WARN', 'CRITICAL'];
+      out.innerHTML += `
+        <div class="verdictline" style="margin-top:14px"><span class="badge v${r.verdict}">${V[r.verdict]}</span>
+          <span class="mono">risk ${r.score}</span> <span>anchored in block <a class="mono" href="${P.explorer}/tx/${esc(r.tx.hash)}" rel="noopener">${esc(r.tx.block)}</a></span></div>
+        <dl class="kv" style="padding:14px 0 0;border:0">
+          <dt>Attestor</dt><dd>${esc(st.address)}</dd>
+          <dt>Receipt</dt><dd><a href="/receipt/${esc(r.receiptHash)}" rel="noopener">${esc(r.receiptHash)}</a></dd>
+        </dl>
+        <div class="note">Signed by your passkey and verified on-chain by the P256VERIFY precompile. It appears in the registry once the indexer picks it up (a few seconds).</div>`;
+      setTimeout(() => window.dispatchEvent(new Event('mg:reload')), 4000);
+    } catch (e) {
+      if (cur) cur.className = 'fail';
+      out.innerHTML += `<div class="err" style="text-align:left">${esc(P.errorMessage(e))}</div>`;
+    } finally { btn.disabled = false; }
+  };
+
+  locked();
+});
 </script>
 </body>
 </html>

@@ -16,12 +16,14 @@
 import './env.js';
 import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
+import { compress } from 'hono/compress';
+import { parseEther, isAddress, getAddress } from 'viem';
 import { serve } from '@hono/node-server';
 import { scan } from './scanner/engine.js';
 import { scanMCP } from './scanner/mcp.js';
 import { freeScan } from './free_scan.js';
 import { recommend } from './recs.js';
-import { buildReceipt, receiptHash as hashReceipt, signReceiptJws, jwks, anchorDigest, signDigest, toVerdict } from './receipt.js';
+import { buildReceipt, receiptHash as hashReceipt, signReceiptJws, verifyReceiptJws, decodeReceipt, jwks, anchorDigest, signDigest, toVerdict } from './receipt.js';
 import { toolId as deriveToolId, contentHash as deriveContentHash } from '../scripts/toolid.mjs';
 import { loadAttestor, publicAttestor } from './keys.js';
 import * as db from './db.js';
@@ -83,6 +85,9 @@ app.post('/scan/free', async (c) => {
 // ─── Full scan -> receipt ─────────────────────────────────────────────────
 app.use('/scan/*', async (c, next) => rl(c, next));
 app.use('/anchor/*', async (c, next) => rl(c, next));
+app.use('/receipt', async (c, next) => (c.req.method === 'POST' ? rl(c, next) : next()));
+app.use('/faucet', async (c, next) => rl(c, next));
+app.use('*', compress());
 async function rl(c, next) {
   const ip = c.req.header('x-real-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? 'direct';
   if (limited(ip)) return c.json({ error: 'rate limited, try again in a minute' }, 429);
@@ -217,9 +222,41 @@ app.post('/anchor/digest', async (c) => {
 
 // ─── Receipts & registry ──────────────────────────────────────────────────
 app.get('/receipt/:hash', (c) => {
-  const row = db.getScan(c.req.param('hash'));
-  if (!row) return c.json({ error: 'not found' }, 404);
-  return c.text(row.receipt_jws, 200, { 'content-type': 'application/jose' });
+  const hash = c.req.param('hash').toLowerCase();
+  const jws = db.getScan(hash)?.receipt_jws ?? db.getExternalReceipt(hash)?.jws;
+  if (!jws) return c.json({ error: 'not found' }, 404);
+  return c.text(jws, 200, { 'content-type': 'application/jose', 'cache-control': 'public, max-age=31536000, immutable' });
+});
+
+/**
+ * Publish a receipt signed by ANOTHER attestor (the browser passkey path), so its
+ * on-chain receiptURI resolves. Accepted only when:
+ *   - the JWS verifies against the P-256 key embedded in its own payload,
+ *   - tool.id is the canonical toolId of (kind, name, origin) — no name spoofing,
+ * Content-addressed and immutable; whether the attestor is trusted is decided
+ * on-chain (registration + P256VERIFY on the anchor), not here.
+ */
+app.post('/receipt', async (c) => {
+  const { jws } = await c.req.json().catch(() => ({}));
+  if (typeof jws !== 'string' || jws.length > 200_000 || jws.split('.').length !== 3) return c.json({ error: 'jws required' }, 400);
+  let payload;
+  try { payload = decodeReceipt(jws); } catch { return c.json({ error: 'malformed receipt' }, 400); }
+  const a = payload?.attestor, t = payload?.tool;
+  if (!a?.x || !a?.y || !t?.id) return c.json({ error: 'receipt missing attestor or tool' }, 400);
+  const pub = '0x04' + a.x.slice(2).padStart(64, '0') + a.y.slice(2).padStart(64, '0');
+  let ok = false;
+  try { ok = verifyReceiptJws(jws, pub); } catch {}
+  if (!ok) return c.json({ error: 'signature does not verify against the embedded attestor key' }, 400);
+  if (deriveToolId({ kind: t.kind, name: t.name, origin: t.origin }).toLowerCase() !== t.id.toLowerCase()) {
+    return c.json({ error: 'tool.id does not match (kind, name, origin)' }, 400);
+  }
+  const hash = hashReceipt(payload).toLowerCase();
+  db.putExternalReceipt({
+    receipt_hash: hash, jws, tool_id: t.id.toLowerCase(), attestor_x: a.x, attestor_y: a.y,
+    findings_json: JSON.stringify(payload.findings ?? []),
+  });
+  if (!db.getTool(t.id.toLowerCase())) db.upsertTool({ tool_id: t.id.toLowerCase(), kind: t.kind, name: t.name, origin: t.origin });
+  return c.json({ ok: true, receiptHash: hash, uri: `${BASE_URL}/receipt/${hash}` });
 });
 
 // receiptURI on-chain is a hint; the receipt is content-addressed by its hash,
@@ -227,7 +264,10 @@ app.get('/receipt/:hash', (c) => {
 const receiptURL = (hash) => (hash ? `${BASE_URL}/receipt/${hash}` : null);
 
 const withLocal = (s) => {
-  const row = db.getScan(s.receiptHash);
+  const h = s.receiptHash?.toLowerCase();
+  const row = db.getScan(h);
+  const ext = row ? null : db.getExternalReceipt(h);
+  if (ext) return { ...s, receiptURL: receiptURL(h), findings: withFixes(JSON.parse(ext.findings_json)) };
   return { ...s, receiptURL: row ? receiptURL(s.receiptHash) : null, findings: row ? withFixes(JSON.parse(row.findings_json)) : null };
 };
 const toolMeta = (id) => {
@@ -272,6 +312,59 @@ app.get('/registry', async (c) => {
   }
 });
 
+// ─── JSON-RPC proxy for the passkey attestor ─────────────────────────────
+// The page's CSP is connect-src 'self', and the Alchemy key must stay here.
+// Read methods plus eth_sendRawTransaction (already signed in the browser).
+const RPC_METHODS = new Set([
+  'eth_chainId', 'eth_blockNumber', 'eth_fillTransaction', 'eth_getBalance', 'eth_getTransactionCount', 'eth_gasPrice',
+  'eth_maxPriorityFeePerGas', 'eth_feeHistory', 'eth_estimateGas', 'eth_call', 'eth_getCode',
+  'eth_sendRawTransaction', 'eth_getTransactionReceipt', 'eth_getTransactionByHash', 'eth_getBlockByNumber',
+]);
+const RPC_RATE = Number(process.env.RPC_RATE_PER_MIN ?? 240);
+const rpcHits = new Map();
+const clientIp = (c) => c.req.header('x-real-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? 'direct';
+app.post('/rpc', async (c) => {
+  const ip = clientIp(c), w = Math.floor(Date.now() / 60000), k = `${ip}:${w}`;
+  const n = (rpcHits.get(k) ?? 0) + 1; rpcHits.set(k, n);
+  if (rpcHits.size > 5000) for (const key of rpcHits.keys()) if (!key.endsWith(`:${w}`)) rpcHits.delete(key);
+  if (n > RPC_RATE) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32005, message: 'rate limited' } }, 429);
+
+  const body = await c.req.json().catch(() => null);
+  const calls = Array.isArray(body) ? body : [body];
+  if (!body || calls.length > 20) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400);
+  const bad = calls.find((x) => !x || !RPC_METHODS.has(x.method));
+  if (bad) return c.json({ jsonrpc: '2.0', id: bad?.id ?? null, error: { code: -32601, message: `method not allowed: ${bad?.method}` } }, 403);
+  const r = await fetch(chain.RPC_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) })
+    .catch((e) => ({ ok: false, status: 502, json: async () => ({ jsonrpc: '2.0', id: null, error: { code: -32603, message: e.message } }) }));
+  return c.json(await r.json(), r.ok ? 200 : 502);
+});
+
+// ─── Testnet gas for new passkey attestors ───────────────────────────────
+// One grant per address, forever; per-IP and global daily caps. Testnet only.
+const FAUCET_AMOUNT = process.env.FAUCET_AMOUNT ?? '0.05';
+const FAUCET_DAILY = Number(process.env.FAUCET_DAILY ?? 25);
+const FAUCET_PER_IP = Number(process.env.FAUCET_PER_IP_DAILY ?? 3);
+app.post('/faucet', async (c) => {
+  if (chain.CHAIN_ID === 143) return c.json({ error: 'no faucet on mainnet' }, 400);
+  const { address } = await c.req.json().catch(() => ({}));
+  if (!address || !isAddress(address)) return c.json({ error: 'address required' }, 400);
+  const to = getAddress(address);
+  if (db.faucetGranted(to)) return c.json({ error: 'this address already received test gas' }, 409);
+  const ip = clientIp(c), day = Math.floor(Date.now() / 1000) - 86400;
+  if (db.faucetGrantsByIpSince(ip, day) >= FAUCET_PER_IP) return c.json({ error: 'daily limit for this network reached' }, 429);
+  if (db.faucetGrantsSince(day) >= FAUCET_DAILY) return c.json({ error: 'faucet daily budget used up, try tomorrow or use faucet.monad.xyz' }, 429);
+  const bal = await chain.publicClient.getBalance({ address: to });
+  if (bal >= parseEther(FAUCET_AMOUNT) / 2n) return c.json({ ok: true, skipped: 'balance already sufficient' });
+  try {
+    const { client } = chain.wallet();
+    const tx = await client.sendTransaction({ to, value: parseEther(FAUCET_AMOUNT) });
+    db.recordFaucetGrant(to, ip, tx);
+    return c.json({ ok: true, tx, amount: FAUCET_AMOUNT });
+  } catch (e) {
+    return c.json({ error: e.shortMessage ?? e.message }, 502);
+  }
+});
+
 // ─── Site ─────────────────────────────────────────────────────────────────
 // One static page, served by the API itself so it shares the origin: no CORS,
 // and the passkey rpId (monadguard.com) is the page's own host.
@@ -280,6 +373,13 @@ const CSP = [
   "default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:", "connect-src 'self'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
+const BUNDLE = new URL('../web/passkey.js', import.meta.url);
+app.get('/passkey.js', (c) => {
+  let js;
+  try { js = readFileSync(BUNDLE, 'utf8'); } catch { return c.text('// passkey bundle not built: npm run build:web', 404); }
+  return c.body(js, 200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' });
+});
+
 app.get('/', (c) => {
   let html;
   try { html = readFileSync(SITE, 'utf8'); } catch { return c.text('site not built', 404); }

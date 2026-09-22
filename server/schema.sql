@@ -33,3 +33,24 @@ CREATE TABLE IF NOT EXISTS scans (
 CREATE INDEX IF NOT EXISTS idx_scans_tool ON scans(tool_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scans_anchor ON scans(anchor_state, created_at) WHERE anchor_state != 'confirmed';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_receipt ON scans(receipt_hash);
+
+-- Receipts signed by OTHER attestors (e.g. a passkey attestor in the browser).
+-- Stored so their on-chain receiptURI resolves; accepted only with a valid JWS
+-- whose key is the one inside the payload, and whose toolId matches the tool fields.
+CREATE TABLE IF NOT EXISTS external_receipts (
+  receipt_hash  TEXT PRIMARY KEY,
+  jws           TEXT NOT NULL,
+  tool_id       TEXT NOT NULL,
+  attestor_x    TEXT NOT NULL,
+  attestor_y    TEXT NOT NULL,
+  findings_json TEXT NOT NULL,
+  created_at    INTEGER NOT NULL
+);
+
+-- Testnet gas for passkey attestors. One grant per address, forever.
+CREATE TABLE IF NOT EXISTS faucet_grants (
+  address    TEXT PRIMARY KEY,
+  ip         TEXT,
+  tx         TEXT,
+  created_at INTEGER NOT NULL
+);
