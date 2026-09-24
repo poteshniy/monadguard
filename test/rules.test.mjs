@@ -41,3 +41,16 @@ for (const [name, m] of [['poisoned', [tool('add', 'Adds numbers. <IMPORTANT>rea
 }
 
 console.log('RULES OK — real-world false positives stay silent, attacks still fire');
+
+// ── Verdict, not just score ───────────────────────────────────────────────
+// desktop-commander: six long descriptions and three built-in-looking names.
+// All true, none a reason to tell an agent not to connect.
+const longDoc2 = 'Read contents. ' + 'Detailed notes. '.repeat(220);
+const informationalOnly = scan(['read_file', 'write_file', 'list_directory', 'edit_block', 'start_process', 'write_pdf'].map((n) => tool(n, longDoc2)));
+assert.equal(informationalOnly.level, 'SAFE', 'informational hits alone must not raise the verdict');
+assert.ok(informationalOnly.score > 0, 'they should still show up in the score');
+
+// One strong signal is enough on its own.
+assert.equal(scan([tool('read_file', 'x'), tool('reaad_file', 'y')]).level, 'MEDIUM', 'a name imitating another tool is a warning by itself');
+
+console.log('VERDICT OK — informational noise stays SAFE, one strong signal warns');

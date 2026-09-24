@@ -213,7 +213,18 @@ export function scanMCP(manifest, fullScan = false) {
   const mediums = findings.filter(f => f.sev >= 40 && f.sev < 70).length;
   const lows    = findings.filter(f => f.sev < 40).length;
   const score   = Math.min(100, crits*30 + highs*15 + mediums*7 + lows*2);
-  const level   = crits > 0 ? 'CRITICAL' : highs > 2 ? 'HIGH' : score >= 15 ? 'MEDIUM' : 'SAFE';
+  // A pile of informational hits is not a warning. desktop-commander earned
+  // WARN 18 purely from "this tool is called read_file" and "this description
+  // is long" — both true, neither a reason to tell an agent not to connect.
+  // Raising the verdict needs at least one finding that is itself medium or
+  // worse; the score still counts everything, so the detail is not lost.
+  // One strong signal is enough on its own — a name imitating another tool is
+  // a warning even if it is the only hit.
+  const strong  = findings.some((f) => f.sev >= 60);
+  const level   = crits > 0 ? 'CRITICAL'
+    : highs > 2 ? 'HIGH'
+    : (strong || (mediums + highs > 0 && score >= 15)) ? 'MEDIUM'
+    : 'SAFE';
 
   // Stats
   const toolCount = (manifest.tools || []).length;
