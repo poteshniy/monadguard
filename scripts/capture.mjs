@@ -14,7 +14,7 @@
  * is none, and there will not be one.
  */
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, readFile, chmod } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,9 +23,15 @@ const run = promisify(execFile);
 const IMAGE = process.env.CAPTURE_IMAGE ?? 'node:22-alpine';
 const PROBE = new URL('capture/probe.mjs', import.meta.url).pathname;
 
-export async function capture(pkg, { args = [], timeoutMs = 120000 } = {}) {
+/** execFile errors put the reason in stderr, not in message — keep both. */
+const why = (e) => [e.stderr, e.stdout, e.message].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+export async function capture(pkg, { args = [], timeoutMs = 180000 } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'mg-capture-'));
   try {
+    // The container runs as uid 1000; the host temp dir belongs to root, so
+    // without this npm cannot write a single file into the mount.
+    await chmod(dir, 0o777);
     await run('docker', ['run', '--rm', '-v', `${dir}:/w`, '-w', '/w', '-u', '1000:1000',
       '-e', 'HOME=/tmp', '--memory', '1g', '--pids-limit', '512', IMAGE,
       'npm', 'install', '--no-audit', '--no-fund', '--ignore-scripts', '--silent', pkg,
@@ -66,6 +72,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     : argv.filter((a) => !a.startsWith('--') && !flagValues.has(a)).map((name) => ({ name }));
   if (!targets.length) { console.error('usage: npm run capture -- <package> | --file targets.json'); process.exit(1); }
 
+  try {
+    await run('docker', ['version', '--format', '{{.Server.Version}}']);
+  } catch (e) {
+    console.error(`docker is not usable here: ${why(e).slice(-200)}`);
+    process.exit(1);
+  }
+
   await mkdir(out, { recursive: true });
   const index = [];
   for (const t of targets) {
@@ -80,8 +93,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`${manifest.tools.length} tool(s) -> ${path}`);
       index.push({ ...t, status: 'ok', tools: manifest.tools.length, file: path });
     } catch (e) {
-      console.log(`fail: ${String(e.message).split('\n')[0].slice(0, 90)}`);
-      index.push({ ...t, status: 'failed', error: String(e.message).slice(0, 200) });
+      const reason = why(e);
+      console.log(`fail: ${reason.slice(-160)}`);
+      index.push({ ...t, status: 'failed', error: reason.slice(-400) });
     }
   }
   await writeFile(join(out, 'index.json'), JSON.stringify(index, null, 1));
