@@ -389,3 +389,7 @@ ceremony either way, plus an on-chain `sha256` (~100 gas) per anchor.
 compiled bytecode in a local EVM and compares `anchorDigest` and `registrationDigest` against
 the JS implementation. A one-byte disagreement between `abi.encodePacked` and viem's
 `encodePacked` would otherwise show up as every anchor reverting with `BadSignature`.
+
+---
+
+Built by [poteshniy](https://github.com/poteshniy). Parts of the implementation were written with AI assistance; every design decision, review and on-chain action is the author's.
