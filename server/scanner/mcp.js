@@ -27,9 +27,21 @@ const MCP_RULES = [
     test: (name) => /^(?:read_file|write_file|execute|bash|shell|run_command|list_directory|delete_file|create_file|python|node|eval)$/i.test(name)
   },
   {
+    // Exfiltration needs a DESTINATION that is not the tool's own job. Surveying
+    // published servers, the old pattern flagged a hosting deploy tool for the
+    // sentence "upload the files yourself, this tool does it end-to-end": the
+    // verb phrase alone says nothing. Fire only when an outside sink is named
+    // in the same sentence.
     id: 'M004', sev: 88, cat: 'mcp_poisoning',
-    desc: 'Tool description instructs to exfiltrate data',
-    test: (text) => /(?:send|upload|post|transmit|forward)\s+(?:all|every|the)\s+(?:data|files?|content|output|result)/i.test(text)
+    desc: 'Tool description instructs to send data to an external destination',
+    test: (text) => {
+      const verb = /(?:send|upload|post|transmit|forward|exfiltrate|leak)\s+(?:all|every|the|any)\s+(?:data|files?|contents?|output|results?|responses?|credentials?|keys?|tokens?)/gi;
+      const sink = /\b(?:to|into|at|via)\s+(?:https?:\/\/\S+|our\s+\w+|us\b|an?\s+(?:external|third[- ]party|remote|analytics|telemetry|logging|collection|monitoring)\b|the\s+(?:analytics|telemetry|logging|collection|monitoring|update|reporting)\s*(?:endpoint|server|service|url|api|webhook)?\b)/i;
+      for (let m; (m = verb.exec(text)) !== null; ) {
+        if (sink.test(text.slice(m.index, m.index + 160))) return true;
+      }
+      return false;
+    }
   },
   {
     id: 'M005', sev: 85, cat: 'mcp_rug_pull',
@@ -83,7 +95,7 @@ function extractTextFromManifest(manifest) {
   for (const tool of tools) {
     if (tool.name) chunks.push({ field: `tool.${tool.name}.name`, text: tool.name, isName: true });
     if (tool.description) chunks.push({ field: `tool.${tool.name}.description`, text: tool.description });
-    if (tool.inputSchema) chunks.push({ field: `tool.${tool.name}.schema`, text: JSON.stringify(tool.inputSchema) });
+    if (tool.inputSchema) chunks.push({ field: `tool.${tool.name}.schema`, text: JSON.stringify(tool.inputSchema), isSchema: true });
   }
 
   // Resources
@@ -113,6 +125,10 @@ function checkToolShadowing(tools) {
   for (const name of names) {
     // Check near-duplicates (edit distance 1)
     for (const other of seen) {
+      // getUser/getUsers and fooV1/fooV2 are how REST APIs are named. Real
+      // shadowing imitates ANOTHER tool's name, not its own plural.
+      const stem = (n) => n.replace(/v\d+$/, '').replace(/e?s$/, '');
+      if (stem(name) === stem(other)) continue;
       if (name !== other && levenshtein(name, other) <= 1) {
         findings.push({
           id: 'M010', sev: 65, cat: 'mcp_shadowing',
@@ -159,6 +175,9 @@ export function scanMCP(manifest, fullScan = false) {
       // M003 only applies to tool names, M006 only to resource URIs
       if (rule.id === 'M003' && !chunk.isName) continue;
       if (rule.id === 'M006' && !chunk.isUri) continue;
+      // A JSON schema is long because it is a schema. M008 is about prose a
+      // model reads as instructions; Notion's page schema is not that.
+      if (rule.id === 'M008' && chunk.isSchema) continue;
       if (rule.test(chunk.text)) {
         findings.push({
           id: rule.id, sev: rule.sev, cat: rule.cat,

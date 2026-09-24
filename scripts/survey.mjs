@@ -95,7 +95,7 @@ asking it for its real \`tools/list\`, then scanned with the MonadGuard ruleset
 
 Total tool descriptions inspected: ${totals.tools}.
 
-## The headline: nothing was attacking anyone
+## ${attackHits.length === 0 ? 'The headline: nothing was attacking anyone' : 'Injection-class hits — read before concluding anything'}
 
 ${attackHits.length === 0
   ? `**Not one injection-class pattern fired** — no hidden instructions, no "ignore previous
