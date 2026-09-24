@@ -365,6 +365,18 @@ app.post('/faucet', async (c) => {
   }
 });
 
+// ─── Survey report ───────────────────────────────────────────────────────
+// capture/report.json is produced by `npm run survey` and deliberately not in
+// git (it is derived data). Served read-only so the site can render it.
+const REPORT = process.env.REPORT_PATH ?? new URL('../capture/report.json', import.meta.url).pathname;
+app.get('/report', (c) => {
+  try {
+    return c.body(readFileSync(REPORT, 'utf8'), 200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' });
+  } catch {
+    return c.json({ error: 'no survey has been run on this node' }, 404);
+  }
+});
+
 // ─── Site ─────────────────────────────────────────────────────────────────
 // One static page, served by the API itself so it shares the origin: no CORS,
 // and the passkey rpId (monadguard.com) is the page's own host.

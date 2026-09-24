@@ -191,6 +191,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <a href="#check">Check a tool</a>
       <a href="#attest">Attest</a>
       <a href="#integrate">Integrate</a>
+      <a href="#report">Survey</a>
       <a href="#verify">Verify</a>
       <a href="https://github.com/poteshniy/monadguard" rel="noopener">GitHub</a>
     </nav>
@@ -270,6 +271,20 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
         <p class="hint" id="pk-msg">Loading…</p>
       </div>
     </div>
+  </section>
+
+  <section id="report" hidden>
+    <h2>We scanned the most-downloaded MCP servers</h2>
+    <p class="sub" id="rep-sub"></p>
+    <div class="stats" id="rep-stats"></div>
+    <div class="panel" id="rep-note"></div>
+    <div class="panel" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Server</th><th class="num hide-sm">Downloads / mo</th><th class="num hide-sm">Tools</th><th>Verdict</th><th class="hide-sm">Risk</th></tr></thead>
+        <tbody id="rep-rows"></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:10px">A rule hit is not an accusation and a clean verdict is not a guarantee: this reads the declared interface, it does not run the tool. Method and full findings in the repo.</p>
   </section>
 
   <section id="integrate">
@@ -519,6 +534,36 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
     const text = b.dataset.copy ?? $(b.dataset.copyFrom)?.textContent ?? '';
     try { await navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1400); } catch {}
   });
+
+  // ── Survey (only if this node has run one) ────────────────────────────────
+  (async () => {
+    let d;
+    try { d = await getJSON('/report'); } catch { return; }
+    const t = d.totals ?? {}, cov = d.coverage ?? {};
+    const blind = (cov.unprobeable ?? 0) + (cov.failed ?? 0);
+    const pct = cov.attempted ? Math.round((100 * blind) / cov.attempted) : 0;
+    $('report').hidden = false;
+    $('rep-sub').textContent = `${t.scanned} servers captured by running each one in a sandbox and asking for its real tools/list, then scanned — ${(t.tools ?? 0).toLocaleString('en-US')} tool descriptions in total.`;
+    $('rep-stats').innerHTML = [
+      [t.clean ?? 0, 'clean'], [t.warn ?? 0, 'warn'], [t.critical ?? 0, 'critical'],
+      [`${pct}%`, 'could not be inspected at all'],
+    ].map(([n, l]) => `<div class="stat"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div></div>`).join('');
+    $('rep-note').innerHTML = `<div style="padding:16px 18px;font-size:14px">${
+      (d.attackHits ?? []).length === 0
+        ? `<b>No injection-class pattern fired</b> — no hidden instructions, no exfiltration wording, no rug-pull update hooks — while the same ruleset still flags all three synthetic attack fixtures in the registry above.
+           <div class="hint" style="margin-top:8px">The gap is elsewhere: ${blind} of the ${cov.attempted ?? '?'} most-downloaded servers refuse to answer a handshake without an API key, so nobody inspects them — and a manifest can change after you trust it. That is what a content-hash-pinned registry is for.</div>`
+        : `${(d.attackHits ?? []).length} injection-class hit(s) under review.`}</div>`;
+    $('rep-rows').innerHTML = (d.rows ?? []).map((r) => `<tr${r.toolId ? ` tabindex="0" data-id="${esc(r.toolId)}"` : ''}>
+      <td><div class="tname">${esc(r.package)}</div></td>
+      <td class="num hide-sm">${(r.downloads ?? 0).toLocaleString('en-US')}</td>
+      <td class="num hide-sm">${esc(r.tools)}</td>
+      <td>${badge(['UNKNOWN', 'CLEAN', 'WARN', 'CRITICAL'].indexOf(r.verdict))}</td>
+      <td class="hide-sm">${risk(Number(r.score) || 0)}</td></tr>`).join('');
+    $('rep-rows').addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (tr) { history.replaceState(null, '', `#tool/${tr.dataset.id}`); openTool(tr.dataset.id); }
+    });
+  })();
 
   loadRegistry();
   window.addEventListener('mg:reload', loadRegistry);
