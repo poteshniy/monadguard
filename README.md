@@ -274,6 +274,19 @@ not hand out an RPC key or the attestor's private key with it.
   (the passkey path), or the server key behind `ADMIN_TOKEN`.
 - Rate limited per IP. The API listens on loopback only; nginx is the single entry point.
 
+### Surveying real MCP servers
+
+`npm run capture -- --file scripts/capture/targets.json` installs each package **with
+`--ignore-scripts`** in a throwaway container, then probes it for its real `tools/list` in a
+second container with `--network none`, non-root, with memory and pid caps. `npm run survey`
+scans what came back and writes `capture/REPORT.md`.
+
+This executes third-party code, so it runs by hand, in Docker, never as a service and never on
+request from the internet: an endpoint that did this would be a remote code execution hole next
+to `PRIVATE_KEY`. `npm run survey -- --anchor` refuses to anchor a CRITICAL verdict on a real
+published package unless it is listed in `capture/reviewed.json` — an on-chain CRITICAL is a
+public accusation that cannot be edited later, so a human reads the findings first.
+
 ### Backups
 
 Everything that is not on-chain — signed receipts and findings (`data/monadguard.db`), the attestor

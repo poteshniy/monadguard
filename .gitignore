@@ -12,3 +12,4 @@ logs/
 port/
 *.pre-cleanup
 SUBMISSION_COPY.md
+capture/

@@ -17,7 +17,9 @@
     "check:public": "node scripts/check-public.mjs",
     "build:web": "esbuild web/src/passkey.js --bundle --format=iife --global-name=MGPasskey --minify --target=es2022 --legal-comments=eof --outfile=web/passkey.js",
     "seed": "node scripts/seed.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "capture": "node scripts/capture.mjs",
+    "survey": "node scripts/survey.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",
