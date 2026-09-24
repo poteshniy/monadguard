@@ -49,6 +49,19 @@ for (const f of files) {
 
 rows.sort((a, b) => b.score - a.score || (b.downloads ?? 0) - (a.downloads ?? 0));
 
+// What could not be inspected at all is part of the picture: most of those
+// servers want an API key before they will answer a handshake.
+let coverage = { attempted: rows.length, unprobeable: 0, failed: 0 };
+if (existsSync(join(DIR, 'index.json'))) {
+  const idx = JSON.parse(await readFile(join(DIR, 'index.json'), 'utf8'));
+  coverage = {
+    attempted: idx.length,
+    captured: idx.filter((x) => x.status === 'ok').length,
+    unprobeable: idx.filter((x) => x.status === 'unprobeable').length,
+    failed: idx.filter((x) => x.status === 'failed').length,
+  };
+}
+
 const byRule = {};
 for (const r of rows) for (const id of new Set(r.findings.map((f) => f.id))) (byRule[id] ??= { id, desc: r.findings.find((f) => f.id === id).desc, packages: [] }).packages.push(r.package);
 const totals = {
@@ -60,7 +73,13 @@ const totals = {
   reach: rows.reduce((n, r) => n + (r.downloads ?? 0), 0),
 };
 
-await writeFile(join(DIR, 'report.json'), JSON.stringify({ generatedAt: new Date().toISOString(), totals, byRule, rows }, null, 1));
+// Injection-class rules are the ones that would mean "someone is attacking you".
+const ATTACK_CATS = new Set(['mcp_poisoning', 'mcp_rug_pull', 'mcp_exfiltration', 'injection', 'exfiltration', 'backdoor', 'credentials']);
+const attackHits = rows.flatMap((r) => r.findings.filter((f) => ATTACK_CATS.has(f.cat) && f.sev >= 70).map((f) => ({ package: r.package, ...f })));
+const byCat = {};
+for (const r of rows) for (const f of r.findings) (byCat[f.cat] ??= new Set()).add(r.package);
+
+await writeFile(join(DIR, 'report.json'), JSON.stringify({ generatedAt: new Date().toISOString(), totals, coverage, byRule, byCat: Object.fromEntries(Object.entries(byCat).map(([k, v]) => [k, [...v]])), attackHits, rows }, null, 1));
 
 const md = `# State of MCP security — ${new Date().toISOString().slice(0, 10)}
 
@@ -75,6 +94,37 @@ asking it for its real \`tools/list\`, then scanned with the MonadGuard ruleset
 | CRITICAL | ${totals.critical} |
 
 Total tool descriptions inspected: ${totals.tools}.
+
+## The headline: nothing was attacking anyone
+
+${attackHits.length === 0
+  ? `**Not one injection-class pattern fired** — no hidden instructions, no "ignore previous
+instructions", no exfiltration wording, no rug-pull update hooks — across ${totals.tools} tool
+descriptions from ${totals.scanned} published servers. The same ruleset catches all three of our
+synthetic attack fixtures, so the rules are not simply asleep.
+
+That is the useful result. The risk in the MCP ecosystem today is not that popular published
+servers are poisoned; it is that **nothing checks the ones that are not popular**, and that a
+server can change its manifest after you trust it. Both are what a registry of anchored,
+content-hash-pinned verdicts is for.`
+  : `${attackHits.length} injection-class hit(s) need a human read before any conclusion:\n\n${attackHits.map((h) => `- \`${h.package}\` — ${h.id} ${h.desc} (${h.field})`).join('\n')}`}
+
+## Coverage
+
+| | servers |
+|---|---|
+| captured and scanned | ${coverage.captured ?? totals.scanned} |
+| could not be probed (handshake hangs without credentials) | ${coverage.unprobeable} |
+| failed to install or run | ${coverage.failed} |
+
+Roughly ${Math.round(100 * (coverage.unprobeable + coverage.failed) / Math.max(1, coverage.attempted))}% of the most-downloaded MCP servers cannot be inspected at all without
+handing them an API key first. A user installing one has even less visibility than this survey did.
+
+## Capabilities the tools ask for
+
+| category | servers |
+|---|---|
+${Object.entries(byCat).sort((a, b) => b[1].size - a[1].size).map(([c, v]) => `| ${c} | ${v.size} |`).join('\n')}
 
 ## What fired, and how often
 

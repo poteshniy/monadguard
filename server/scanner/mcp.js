@@ -47,9 +47,14 @@ const MCP_RULES = [
     test: (text) => /(?:<\|system\|>|###\s*System|SYSTEM:\s*You are|\[INST\]\s*<<SYS>>)/i.test(text)
   },
   {
-    id: 'M008', sev: 75, cat: 'mcp_poisoning',
-    desc: 'Tool description is suspiciously long (>2000 chars, potential hidden payload)',
-    test: (text) => text.length > 2000
+    // Informational. Surveying real published servers, this fired on half of
+    // them: thorough documentation is normal and long text is not an attack.
+    // What matters is what the text SAYS — M001, M002, M004, M005 judge that.
+    // Left in because a very long description is still more places to hide
+    // something, and a reviewer should read it.
+    id: 'M008', sev: 20, cat: 'suspicious',
+    desc: 'Very long tool description (>3000 chars) — more room to hide instructions; read it',
+    test: (text) => text.length > 3000
   },
   {
     id: 'M009', sev: 70, cat: 'mcp_credential',

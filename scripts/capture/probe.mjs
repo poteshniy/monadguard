@@ -6,13 +6,18 @@
  * container whose whole job is to be disposable.
  */
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const OUT = '/w/capture-result.json';
+/** stdout is async once it is a pipe: console.log + process.exit truncates
+ *  anything past ~64KB, which is most real tools/list payloads. Write a file. */
+const emit = (obj) => { writeFileSync(OUT, JSON.stringify(obj)); process.exit(0); };
 
 const pkg = process.argv[2];
 const extraArgs = process.argv.slice(3);
 const meta = JSON.parse(readFileSync(`/w/node_modules/${pkg}/package.json`, 'utf8'));
 const binField = typeof meta.bin === 'string' ? meta.bin : Object.values(meta.bin ?? {})[0];
-if (!binField) { console.log(JSON.stringify({ error: 'package has no bin' })); process.exit(0); }
+if (!binField) emit({ error: 'package has no bin' });
 
 const child = spawn('node', [`/w/node_modules/${pkg}/${binField}`, ...extraArgs], {
   stdio: ['pipe', 'pipe', 'pipe'],
@@ -62,5 +67,4 @@ try {
   out.stderr = stderr.slice(-500);
 }
 child.kill('SIGKILL');
-console.log(JSON.stringify(out));
-process.exit(0);
+emit(out);

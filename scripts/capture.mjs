@@ -39,13 +39,12 @@ export async function capture(pkg, { args = [], timeoutMs = 180000 } = {}) {
 
     await writeFile(join(dir, 'probe.mjs'), await readFile(PROBE, 'utf8'));
 
-    const { stdout } = await run('docker', ['run', '--rm', '--network', 'none', '-v', `${dir}:/w`, '-w', '/w',
+    await run('docker', ['run', '--rm', '--network', 'none', '-v', `${dir}:/w`, '-w', '/w',
       '-u', '1000:1000', '-e', 'HOME=/tmp', '--memory', '512m', '--pids-limit', '256', IMAGE,
       'node', '/w/probe.mjs', pkg, ...args,
-    ], { timeout: 60000, maxBuffer: 16 * 1024 * 1024 });
+    ], { timeout: 90000, maxBuffer: 8 * 1024 * 1024 });
 
-    const line = stdout.trim().split('\n').filter((l) => l.startsWith('{')).pop();
-    return JSON.parse(line);
+    return JSON.parse(await readFile(join(dir, 'capture-result.json'), 'utf8'));
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -86,7 +85,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.stdout.write(`${label.padEnd(48)} `);
     try {
       const cap = await capture(t.name, { args: t.args ?? [] });
-      if (cap.error) { console.log(`skip: ${cap.error}`); index.push({ ...t, status: 'unprobeable', error: cap.error }); continue; }
+      if (cap.error) {
+        // Most of these want an API key and hang on the handshake. That is a
+        // finding about the ecosystem, not a failure of the capture.
+        const hint = /timeout/i.test(cap.error) && cap.stderr ? cap.stderr.slice(-120) : '';
+        console.log(`skip: ${cap.error}${hint ? ` — ${hint}` : ''}`);
+        index.push({ ...t, status: 'unprobeable', error: cap.error, stderr: cap.stderr ?? null });
+        continue;
+      }
       const manifest = toManifest(cap);
       const path = join(out, `${t.name.replace(/[@/]/g, '_')}.json`);
       await writeFile(path, JSON.stringify({ ...t, capturedAt: new Date().toISOString(), manifest }, null, 1));
