@@ -12,4 +12,6 @@ logs/
 port/
 *.pre-cleanup
 SUBMISSION_COPY.md
-capture/
+# Only the output directory at the repo root — NOT scripts/capture/, which holds
+# the probe and the target list. A bare `capture/` matches both.
+/capture/

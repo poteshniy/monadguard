@@ -1,0 +1,165 @@
+[
+ {
+  "name": "chrome-devtools-mcp",
+  "downloads": 7881886
+ },
+ {
+  "name": "@upstash/context7-mcp",
+  "downloads": 3467901
+ },
+ {
+  "name": "@modelcontextprotocol/server-filesystem",
+  "downloads": 2923355,
+  "args": [
+   "/tmp"
+  ]
+ },
+ {
+  "name": "@modelcontextprotocol/server-everything",
+  "downloads": 1032929
+ },
+ {
+  "name": "@pandacss/mcp",
+  "downloads": 814841
+ },
+ {
+  "name": "@modelcontextprotocol/server-pdf",
+  "downloads": 700861
+ },
+ {
+  "name": "@notionhq/notion-mcp-server",
+  "downloads": 634404
+ },
+ {
+  "name": "hostinger-api-mcp",
+  "downloads": 588482
+ },
+ {
+  "name": "@azure/mcp",
+  "downloads": 537523
+ },
+ {
+  "name": "ato-mcp",
+  "downloads": 495114
+ },
+ {
+  "name": "@modelcontextprotocol/server-memory",
+  "downloads": 488893
+ },
+ {
+  "name": "@modelcontextprotocol/server-sequential-thinking",
+  "downloads": 487276
+ },
+ {
+  "name": "@azure-devops/mcp",
+  "downloads": 469594
+ },
+ {
+  "name": "@zereight/mcp-gitlab",
+  "downloads": 447503
+ },
+ {
+  "name": "@sentry/mcp-server",
+  "downloads": 417238
+ },
+ {
+  "name": "@supabase/mcp-server-supabase",
+  "downloads": 406869
+ },
+ {
+  "name": "@wonderwhy-er/desktop-commander",
+  "downloads": 403421
+ },
+ {
+  "name": "agentation-mcp",
+  "downloads": 364578
+ },
+ {
+  "name": "next-devtools-mcp",
+  "downloads": 354149
+ },
+ {
+  "name": "@sap-ux/fiori-mcp-server",
+  "downloads": 332290
+ },
+ {
+  "name": "@ui5/mcp-server",
+  "downloads": 328581
+ },
+ {
+  "name": "@transcend-io/mcp",
+  "downloads": 230856
+ },
+ {
+  "name": "@transcend-io/mcp-server-admin",
+  "downloads": 230469
+ },
+ {
+  "name": "@transcend-io/mcp-server-preferences",
+  "downloads": 230284
+ },
+ {
+  "name": "@transcend-io/mcp-server-inventory",
+  "downloads": 230168
+ },
+ {
+  "name": "@transcend-io/mcp-server-workflows",
+  "downloads": 230049
+ },
+ {
+  "name": "@transcend-io/mcp-server-dsr",
+  "downloads": 228311
+ },
+ {
+  "name": "@transcend-io/mcp-server-discovery",
+  "downloads": 228099
+ },
+ {
+  "name": "@transcend-io/mcp-server-consent",
+  "downloads": 219638
+ },
+ {
+  "name": "@transcend-io/mcp-server-assessment",
+  "downloads": 217466
+ },
+ {
+  "name": "@transcend-io/mcp-server-docs",
+  "downloads": 217437
+ },
+ {
+  "name": "@cap-js/mcp-server",
+  "downloads": 211123
+ },
+ {
+  "name": "@azure/mcp-win32-x64",
+  "downloads": 209664
+ },
+ {
+  "name": "@azure/mcp-linux-x64",
+  "downloads": 205258
+ },
+ {
+  "name": "@shopify/dev-mcp",
+  "downloads": 187754
+ },
+ {
+  "name": "@turbopuffer/turbopuffer-mcp",
+  "downloads": 186826
+ },
+ {
+  "name": "mcp-hello-world",
+  "downloads": 167242
+ },
+ {
+  "name": "@hasna/todos",
+  "downloads": 162795
+ },
+ {
+  "name": "@softeria/ms-365-mcp-server",
+  "downloads": 155340
+ },
+ {
+  "name": "@nitrostack/cli",
+  "downloads": 147073
+ }
+]
