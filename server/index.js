@@ -285,7 +285,7 @@ app.get('/registry/:toolId', async (c) => {
   try {
     const { tool, scans } = await envio.toolHistory(toolId);
     if (tool) {
-      return c.json({ toolId, meta: toolMeta(toolId), tool, scans: scans.map(withLocal), source: 'envio' });
+      return c.json({ toolId, meta: toolMeta(toolId), tool, scans: scans.map(withLocal), source: 'envio', index: envio.lastSource });
     }
   } catch (e) {
     c.header('x-envio-error', String(e.message).slice(0, 120));
@@ -307,6 +307,7 @@ app.get('/registry', async (c) => {
     const d = await envio.tools(limit);
     return c.json({
       source: 'envio',
+      index: envio.lastSource,
       graphql: process.env.PUBLIC_GRAPHQL_URL ?? 'https://graphql.monadguard.com/v1/graphql',
       cloudGraphql: process.env.ENVIO_CLOUD_GRAPHQL_URL ?? null,
       attestors: d.Attestor,

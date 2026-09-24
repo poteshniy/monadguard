@@ -377,6 +377,9 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
       const d = await getJSON('/registry?limit=100');
       tools = d.tools ?? [];
       $('netdot').classList.toggle('off', d.source !== 'envio');
+      // Say which index answered when it is not ours, rather than quietly
+      // serving different data than the endpoint we tell people to query.
+      if (d.index === 'envio-cloud') document.querySelector('.net').lastChild.textContent = ' Monad testnet · 10143 · via Envio Cloud';
       $('s-tools').textContent = tools.length;
       $('s-scans').textContent = tools.reduce((n, t) => n + (t.scanCount ?? 0), 0);
       $('s-crit').textContent = tools.filter((t) => Number(t.latestVerdict) === 3).length;
