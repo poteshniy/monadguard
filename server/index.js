@@ -89,7 +89,12 @@ app.use('/receipt', async (c, next) => (c.req.method === 'POST' ? rl(c, next) : 
 app.use('/faucet', async (c, next) => rl(c, next));
 app.use('*', compress());
 async function rl(c, next) {
-  const ip = c.req.header('x-real-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? 'direct';
+  // nginx always sets X-Real-IP, and nothing else can reach this port (the API
+  // binds loopback). A request without it is an operator tool on this machine —
+  // the seeder and the survey anchor 18 tools in one go and were rate-limiting
+  // themselves out. Limit the public path, not the console.
+  const ip = c.req.header('x-real-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0].trim();
+  if (!ip) return next();
   if (limited(ip)) return c.json({ error: 'rate limited, try again in a minute' }, 429);
   return next();
 }
