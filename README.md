@@ -73,6 +73,42 @@ Server support: `POST /receipt` (publish a receipt signed by any attestor), `POS
 proxy, allow-listed methods, keeps the RPC key server-side), `POST /faucet` (one-time testnet gas
 per new attestor address, daily caps). Source: `web/src/passkey.js`, bundle: `npm run build:web`.
 
+## For integrators
+
+**In an agent** — one call before connecting, fails closed:
+
+```bash
+npm i monadguard
+```
+```js
+import { gate } from 'monadguard';
+await gate({ kind: 'mcp', name: 'memory-server', origin: 'npm:@modelcontextprotocol/server-memory' });
+// throws MonadGuardBlocked on CRITICAL, WARN, a stale verdict, or a tool nobody scanned
+```
+
+**In CI** — exit code 1 when a dependency is not cleared:
+
+```bash
+npx monadguard check npm:@acme/mcp-server --name acme-server
+```
+
+**In a contract** — this is why verdicts are anchored rather than kept in a database. Another
+contract can check them itself, in the same transaction, without trusting an API to answer
+honestly:
+
+```solidity
+if (!registry.isCleared(toolId, contentHash, attestor, 30 days)) revert ToolNotCleared();
+```
+
+`contentHash` pinning is the point: a tool that was clean last week can ship a poisoned manifest
+today. Full example: [`contracts/examples/GatedRouter.sol`](contracts/examples/GatedRouter.sol).
+Client source and options: [`client/`](client/).
+
+**Who decides trust.** Anyone can register as an attestor and anchor verdicts; the registry
+records who said what and does not gatekeep. Consumers pin the attestors they accept (`attestors:
+[...]` in the client, the `attestor` argument on-chain). Reputation is a consumer-side policy,
+not a privilege we grant.
+
 ## Relationship to ERC-8004
 
 Complementary, not competing. ERC-8004 gives *agents* identity and reputation. MonadGuard

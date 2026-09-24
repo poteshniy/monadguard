@@ -6,7 +6,7 @@
     "compile": "node compile.cjs",
     "deploy": "node scripts/deploy.mjs",
     "dev": "node server/index.js",
-    "test": "node test/parity.test.mjs && node test/receipt.test.mjs && node scripts/attestor.test.mjs",
+    "test": "node test/parity.test.mjs && node test/receipt.test.mjs && node scripts/attestor.test.mjs && node test/client.test.mjs",
     "e2e": "node scripts/e2e.mjs",
     "predev": "node scripts/check-secrets.mjs",
     "predeploy": "node scripts/check-secrets.mjs",

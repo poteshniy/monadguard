@@ -190,6 +190,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <a href="#registry">Registry</a>
       <a href="#check">Check a tool</a>
       <a href="#attest">Attest</a>
+      <a href="#integrate">Integrate</a>
       <a href="#verify">Verify</a>
       <a href="https://github.com/poteshniy/monadguard" rel="noopener">GitHub</a>
     </nav>
@@ -269,6 +270,23 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
         <p class="hint" id="pk-msg">Loading…</p>
       </div>
     </div>
+  </section>
+
+  <section id="integrate">
+    <h2>Use it in your agent</h2>
+    <p class="sub">One call before connecting. Fails closed: CRITICAL, WARN, a stale verdict or a tool nobody scanned all stop the connection.</p>
+    <div class="panel">
+      <pre>npm i monadguard
+
+import { gate } from 'monadguard';
+await gate({ kind: 'mcp', name: 'memory-server', origin: 'npm:@modelcontextprotocol/server-memory' });
+await client.connect(transport);   // only reached when a fresh CLEAN verdict exists</pre>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="ep"><span class="k">In CI</span><span class="val">npx monadguard check npm:@acme/mcp-server --name acme-server</span><button class="copy" data-copy="npx monadguard check npm:@acme/mcp-server --name acme-server">Copy</button></div>
+      <div class="ep"><span class="k">In a contract</span><span class="val">registry.isCleared(toolId, contentHash, attestor, 30 days)</span><button class="copy" data-copy="registry.isCleared(toolId, contentHash, attestor, 30 days)">Copy</button></div>
+    </div>
+    <p class="hint" style="margin-top:10px">You pick the attestors you trust — the registry records who said what and gatekeeps nobody.</p>
   </section>
 
   <section id="verify">
