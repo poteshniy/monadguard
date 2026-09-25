@@ -92,6 +92,16 @@ await gate({ kind: 'mcp', name: 'memory-server', origin: 'npm:@modelcontextproto
 npx monadguard check npm:@acme/mcp-server --name acme-server
 ```
 
+**As an MCP server** — the registry as a tool the agent calls itself:
+
+```bash
+claude mcp add monadguard -- npx -y monadguard-mcp
+```
+
+`check_tool` reads the chain before connecting; `scan_manifest` scans a `tools/list` payload you
+already hold. Both read-only: anchoring needs an attestor key, which an agent running someone
+else's prompt should not hold.
+
 **In a contract** — this is why verdicts are anchored rather than kept in a database. Another
 contract can check them itself, in the same transaction, without trusting an API to answer
 honestly:

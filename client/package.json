@@ -1,16 +1,42 @@
 {
   "name": "monadguard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Check an MCP server or agent skill against the MonadGuard on-chain trust registry before your agent connects to it",
   "type": "module",
   "main": "index.js",
-  "exports": { ".": "./index.js" },
-  "bin": { "monadguard": "./cli.mjs" },
-  "files": ["index.js", "cli.mjs", "README.md"],
-  "keywords": ["mcp", "agent", "security", "monad", "trust", "registry"],
+  "exports": {
+    ".": "./index.js"
+  },
+  "bin": {
+    "monadguard": "./cli.mjs",
+    "monadguard-mcp": "./mcp.mjs"
+  },
+  "files": [
+    "index.js",
+    "cli.mjs",
+    "mcp.mjs",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "agent",
+    "security",
+    "monad",
+    "trust",
+    "registry"
+  ],
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/poteshniy/monadguard.git", "directory": "client" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/poteshniy/monadguard.git",
+    "directory": "client"
+  },
   "homepage": "https://monadguard.com",
-  "engines": { "node": ">=20" },
-  "dependencies": { "@noble/hashes": "^2.4.0" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@modelcontextprotocol/sdk": "^1.30.1"
+  }
 }

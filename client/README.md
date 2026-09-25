@@ -41,6 +41,26 @@ try {
 `check()` returns the full picture — every attestor's own latest verdict, scores, tx hashes —
 so you can apply your own policy instead of ours.
 
+### As an MCP server
+
+Give the agent the registry as a tool it can call itself:
+
+```bash
+claude mcp add monadguard -- npx -y monadguard-mcp
+```
+```json
+{ "mcpServers": { "monadguard": { "command": "npx", "args": ["-y", "monadguard-mcp"] } } }
+```
+
+| tool | does |
+|---|---|
+| `check_tool` | what the chain says about a tool, before connecting to it — every attestor's own verdict, the score, the tx |
+| `scan_manifest` | scan a `tools/list` payload you already hold; returns findings with fixes, writes nothing |
+
+Both are read-only. Anchoring needs an attestor key, which an agent running
+someone else's prompt has no business holding. An unreachable registry comes
+back as `UNKNOWN` with the reason, never as a pass.
+
 ### In a contract
 
 Agents that act on-chain can check in the same transaction; see
