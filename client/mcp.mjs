@@ -28,10 +28,10 @@ const TOOLS = [
       type: 'object',
       properties: {
         origin: { type: 'string', description: 'Where the tool comes from: "npm:@scope/package", a repo URL or a server URL' },
-        name: { type: 'string', description: 'Tool name as published, e.g. "memory-server"' },
+        name: { type: 'string', description: 'The name the server declares for itself, e.g. "memory-server", if you know it. Leave it out and the registry resolves the origin — do not guess it from the package name' },
         kind: { type: 'string', enum: ['mcp', 'skill'], description: 'Defaults to mcp' },
       },
-      required: ['origin', 'name'],
+      required: ['origin'],
     },
   },
   {
@@ -50,14 +50,14 @@ const TOOLS = [
 
 const text = (o) => ({ content: [{ type: 'text', text: typeof o === 'string' ? o : JSON.stringify(o, null, 2) }] });
 
-const server = new Server({ name: 'monadguard', version: '0.2.0' }, { capabilities: { tools: {} } });
+const server = new Server({ name: 'monadguard', version: '0.2.1' }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args = {} } = req.params;
 
   if (name === 'check_tool') {
-    const tool = { kind: args.kind ?? 'mcp', name: args.name, origin: args.origin };
+    const tool = { kind: args.kind ?? 'mcp', origin: args.origin, ...(args.name ? { name: args.name } : {}) };
     let r;
     try {
       r = await check(tool);
@@ -69,7 +69,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         known: false,
         error: e.message,
         advice: 'The registry could not be reached, so nothing is known about this tool right now. Treat it as unverified.',
-        toolId: toolId(tool),
+        toolId: tool.name ? toolId(tool) : null,
       });
     }
     return text({
@@ -77,11 +77,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       risk: r.score,
       known: r.known,
       advice: r.verdict === 'CLEAN' ? 'A registered attestor cleared this exact version. Check the timestamp before relying on it.'
-        : r.verdict === 'UNKNOWN' ? 'Nobody has scanned this tool. Treat it as unverified, not as safe.'
-        : 'At least one attestor flagged this tool. Read the findings before connecting.',
+        : r.verdict === 'UNKNOWN'
+          ? (!r.known && r.candidates?.length
+            // The caller pinned a name that does not exist on chain. Do not
+            // answer about a different identity — say which one it would be.
+            ? `Nothing is known under the name "${args.name}". The registry knows ${r.candidates[0].origin} as "${r.candidates[0].name}" — ask again with that name, or with no name at all, if that is the server you mean.`
+            : 'Nobody has scanned this tool. Treat it as unverified, not as safe.')
+          : 'At least one attestor flagged this tool. Read the findings before connecting.',
       attestors: r.attestors,
       toolId: r.toolId,
-      registry: `https://monadguard.com/#tool/${r.toolId}`,
+      // Which identity this answer is actually about, when the caller only knew
+      // the package: the declared name is part of the identity, so say it.
+      ...(r.resolved ? { declaredName: r.resolved.name, resolvedBy: 'origin' } : {}),
+      registry: r.toolId ? `https://monadguard.com/#tool/${r.toolId}` : 'https://monadguard.com',
       source: r.source,
     });
   }

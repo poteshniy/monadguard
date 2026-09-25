@@ -8,10 +8,19 @@ Every verdict was signed by an attestor with a P-256 key and verified on Monad b
 to trust.
 
 ```bash
-npx monadguard check npm:@modelcontextprotocol/server-memory --name memory-server
+npx monadguard check npm:@modelcontextprotocol/server-memory
 ```
 
 Exit code 0 means a fresh CLEAN verdict exists; 1 means it does not — drop it into CI.
+
+A tool's identity is `kind:origin#name`, where the name is the one the **server declares** —
+npm's `server-memory` calls itself `memory-server`. That is deliberate: a server that renames
+itself gets a new identity instead of inheriting an old clearance. Since you rarely know the
+declared name up front, the origin alone is enough — the registry reports which identities it
+has seen there, and the answer says which one it is about.
+
+A name you *do* pass is a pin: `gate()` will not quietly answer about a different identity. If
+it misses, the error names the one that would have matched.
 
 ```js
 import { gate, check, MonadGuardBlocked } from 'monadguard';
@@ -36,7 +45,8 @@ try {
 | `allowWarn` | false | accept WARN |
 | `allowUnknown` | false | accept a tool nobody has scanned |
 | `contentHash` | — | require the clearance to cover *this exact* manifest (rug-pull protection) |
-| `graphql` / `api` | public | point at your own indexer or mirror |
+| `resolve` | `'auto'` | resolve the origin to a declared name when you gave none. `true`: also when the name you gave missed. `false`: never |
+| `graphql` / `api` | public | point at your own indexer or mirror (also `MONADGUARD_GRAPHQL` / `MONADGUARD_API`) |
 
 `check()` returns the full picture — every attestor's own latest verdict, scores, tx hashes —
 so you can apply your own policy instead of ours.

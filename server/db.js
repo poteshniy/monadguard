@@ -47,6 +47,17 @@ const stmts = {
   saveSig: db.prepare("UPDATE scans SET sig_r = ?, sig_s = ?, anchor_state = 'queued' WHERE receipt_hash = ?"),
   setState: db.prepare('UPDATE scans SET anchor_state = ? WHERE receipt_hash = ?'),
   markAnchor: db.prepare('UPDATE scans SET anchor_tx = ?, anchor_block = ?, anchor_state = ? WHERE receipt_hash = ?'),
+  // Every identity this node has seen under one origin. An anchored one first:
+  // a tool somebody scanned locally and never anchored is a weaker answer than
+  // one that exists on chain.
+  byOrigin: db.prepare(`
+    SELECT t.tool_id, t.kind, t.name, t.origin,
+           (SELECT COUNT(*) FROM scans s WHERE s.tool_id = t.tool_id AND s.anchor_state = 'confirmed') AS anchored
+    FROM tools t
+    WHERE lower(t.origin) = lower(?) AND (? IS NULL OR t.kind = ?)
+    ORDER BY anchored DESC, t.first_seen ASC
+    LIMIT 10`),
+
   recent: db.prepare(`
     SELECT t.tool_id, t.kind, t.name, t.origin,
            s.verdict, s.score, s.created_at, s.anchor_tx, s.anchor_state
@@ -74,6 +85,7 @@ export const setState = (receiptHash, state) => stmts.setState.run(state, receip
 export const markAnchored = (receiptHash, tx, block, state = 'confirmed') =>
   stmts.markAnchor.run(tx, block, state, receiptHash);
 export const recentTools = (limit = 25) => stmts.recent.all(limit);
+export const toolsByOrigin = (origin, kind = null) => stmts.byOrigin.all(origin, kind, kind);
 export const stats = () => stmts.counts.get();
 
 const ext = {

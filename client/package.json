@@ -1,6 +1,6 @@
 {
   "name": "monadguard",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Check an MCP server or agent skill against the MonadGuard on-chain trust registry before your agent connects to it",
   "type": "module",
   "main": "index.js",

@@ -14,11 +14,19 @@ assert.equal(toolId({ ...tool, name: ' Memory-Server ', origin: 'NPM:@modelconte
 
 const now = Math.floor(Date.now() / 1000);
 let reply = {};
+let byId = {};        // per-toolId answers, for the resolution tests
+let candidates = [];  // what /registry/resolve reports for an origin
 const srv = createServer((req, res) => {
   let b = '';
-  req.on('data', (d) => (b += d)).on('end', () => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: reply })); });
+  req.on('data', (d) => (b += d)).on('end', () => {
+    res.setHeader('content-type', 'application/json');
+    if (req.url.startsWith('/registry/resolve')) return res.end(JSON.stringify({ candidates }));
+    const id = (() => { try { return JSON.parse(b).variables?.id; } catch { return null; } })();
+    res.end(JSON.stringify({ data: byId[id] ?? reply }));
+  });
 }).listen(0);
 const graphql = `http://127.0.0.1:${srv.address().port}/v1/graphql`;
+const api = `http://127.0.0.1:${srv.address().port}`;
 const opts = { graphql, api: 'http://127.0.0.1:1', timeoutMs: 2000 };
 const scan = (verdict, attestor, age = 0, score = 0) => ({ attestor_id: attestor, verdict, score, contentHash: '0xaa', timestamp: String(now - age), txHash: '0xtx' });
 const T = (latestVerdict, scans) => ({ Tool: [{ scanCount: scans.length, cleanCount: 0, warnCount: 0, criticalCount: 0, latestVerdict, latestScore: 0, latestContentHash: '0xaa', lastSeen: String(now) }], Scan: scans });
@@ -56,5 +64,34 @@ await assert.rejects(() => gate(tool, opts), /CRITICAL/, 'any critical must bloc
 reply = T(1, [scan(1, '0xa1')]);
 await assert.rejects(() => gate(tool, { ...opts, contentHash: '0xbb' }), MonadGuardBlocked, 'other version must block');
 
+// ── Name resolution ────────────────────────────────────────────────────────
+// The name inside an identity is the one the SERVER declares, not the package
+// path: npm's `server-memory` calls itself `memory-server`. Guessing it from
+// the path reports UNKNOWN on a tool that is in the registry.
+const declared = canonical(tool);
+const guessed = { kind: 'mcp', name: 'server-memory', origin: tool.origin };
+const resolving = { ...opts, api };
+reply = { Tool: [], Scan: [] };
+byId = { [declared]: T(1, [scan(1, '0xa1')]) };
+candidates = [{ toolId: declared, kind: 'mcp', name: 'memory-server', origin: tool.origin, anchored: true }];
+
+const r1 = await check({ kind: 'mcp', origin: tool.origin }, resolving);
+assert.equal(r1.known, true, 'origin alone must resolve to the declared identity');
+assert.equal(r1.toolId, declared, 'resolution must land on the registry identity');
+assert.equal(r1.resolved.name, 'memory-server', 'the answer must say which name it is about');
+
+// A name the caller supplied is a pin. gate() does not quietly swap it.
+const r2 = await check(guessed, resolving);
+assert.equal(r2.known, false, 'a wrong name must stay unknown');
+assert.equal(r2.resolved, undefined, 'must not adopt another identity behind a supplied name');
+assert.equal(r2.candidates[0].name, 'memory-server', 'the miss must still report what the origin is known as');
+assert.match(await gate(guessed, resolving).catch((e) => e.reason), /as "memory-server"/, 'the block must name the identity that would match');
+assert.equal((await check(guessed, { ...resolving, resolve: true })).toolId, declared, 'resolve:true must adopt it');
+assert.equal((await check(guessed, { ...resolving, resolve: false })).candidates, undefined, 'resolve:false must not call out at all');
+
+// Nothing known under that origin either: still fail closed, with no identity.
+candidates = [];
+await assert.rejects(() => gate({ kind: 'mcp', origin: 'npm:nothing-here' }, resolving), MonadGuardBlocked, 'unresolvable origin must fail closed');
+
 srv.close();
-console.log('CLIENT OK — toolId parity, fail-closed gate, attestor pinning, freshness');
+console.log('CLIENT OK — toolId parity, fail-closed gate, attestor pinning, freshness, origin resolution');

@@ -89,7 +89,7 @@ await gate({ kind: 'mcp', name: 'memory-server', origin: 'npm:@modelcontextproto
 **In CI** — exit code 1 when a dependency is not cleared:
 
 ```bash
-npx monadguard check npm:@acme/mcp-server --name acme-server
+npx monadguard check npm:@acme/mcp-server
 ```
 
 **As an MCP server** — the registry as a tool the agent calls itself:

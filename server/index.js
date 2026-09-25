@@ -285,6 +285,26 @@ const toolMeta = (id) => {
   return t ? { name: t.name, kind: t.kind, origin: t.origin } : null;
 };
 
+// toolId binds the name a server DECLARES to where it came from, so a server
+// that renames itself gets a new identity — a signal worth keeping. The cost is
+// that somebody holding only the package name cannot compute it: npm's
+// `@modelcontextprotocol/server-memory` calls itself `memory-server`.
+//
+// This maps an origin to the identities this node has actually scanned. It is a
+// hint from one server, not evidence: the verdict behind each candidate still
+// comes from the chain, and the caller sees which name it ended up asking about.
+// Registered before /registry/:toolId — Hono matches in declaration order.
+app.get('/registry/resolve', (c) => {
+  const origin = c.req.query('origin');
+  if (!origin) return c.json({ error: 'origin required' }, 400);
+  const kind = c.req.query('kind') || null;
+  const rows = db.toolsByOrigin(origin.trim().replace(/\/+$/, ''), kind);
+  return c.json({
+    origin, kind,
+    candidates: rows.map((t) => ({ toolId: t.tool_id, kind: t.kind, name: t.name, origin: t.origin, anchored: t.anchored > 0 })),
+  });
+});
+
 app.get('/registry/:toolId', async (c) => {
   const toolId = c.req.param('toolId').toLowerCase();
   try {
@@ -299,7 +319,10 @@ app.get('/registry/:toolId', async (c) => {
   const scans = db.scansForTool(toolId).map((s) => ({
     contentHash: s.content_hash, verdict: s.verdict, score: s.score,
     receiptHash: s.receipt_hash, receiptURI: s.receipt_uri, receiptURL: receiptURL(s.receipt_hash),
-    scannedAt: s.created_at, txHash: s.anchor_tx, anchorState: s.anchor_state,
+    // `timestamp` under the name the indexed path uses: a consumer falling back
+    // to this one must not silently lose the age of a verdict and treat every
+    // scan as undated.
+    scannedAt: s.created_at, timestamp: s.created_at, txHash: s.anchor_tx, anchorState: s.anchor_state,
     findings: withFixes(JSON.parse(s.findings_json)),
   }));
   if (!scans.length) return c.json({ toolId, error: 'no scans for this tool' }, 404);
