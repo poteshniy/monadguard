@@ -342,7 +342,25 @@ app.get('/registry', async (c) => {
       tools: d.Tool.map((t) => ({ ...t, meta: toolMeta(t.id) })),
     });
   } catch (e) {
-    return c.json({ source: 'local-cache', envioError: e.message, stats: db.stats(), tools: db.recentTools(limit) });
+    // The indexer is down, not the chain. Answer with this node's own record of
+    // what it anchored, in the SAME shape as the indexed path, so a consumer
+    // renders a dated snapshot instead of an empty page. `asOf` is what makes
+    // it honest: it is a cache, and it says how old it is.
+    const rows = db.recentTools(limit);
+    return c.json({
+      source: 'local-cache',
+      envioError: e.message,
+      asOf: rows[0]?.created_at ?? null,
+      stats: db.stats(),
+      tools: rows.map((t) => ({
+        id: t.tool_id,
+        latestVerdict: t.verdict,
+        latestScore: t.score,
+        scanCount: t.scan_count,
+        lastSeen: t.created_at,
+        meta: { name: t.name, kind: t.kind, origin: t.origin },
+      })),
+    });
   }
 });
 

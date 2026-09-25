@@ -388,12 +388,16 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
         $('ep-cloud').textContent = d.cloudGraphql;
         $('curl').textContent = $('curl').textContent.replace(/https:\/\/indexer\.dev\.hyperindex\.xyz\/[^/]+\/v1\/graphql/, d.cloudGraphql);
       }
-      if (d.source !== 'envio') {
-        $('rows').innerHTML = '<tr><td colspan="5" class="err">The indexer is not reachable right now. On-chain data is unaffected; try again shortly.</td></tr>';
+      // Indexer down: this node still knows what it anchored. Show that,
+      // dated, rather than an empty page — but never pass it off as the index.
+      const stale = d.source !== 'envio'
+        ? `<tr><td colspan="5" class="err">The indexer is not reachable right now. Showing this node's own record${d.asOf ? ` as of ${esc(date(d.asOf))}` : ''} — on-chain data is unaffected, and the contract remains the source of truth.</td></tr>`
+        : '';
+      if (!tools.length) {
+        $('rows').innerHTML = stale || '<tr><td colspan="5" class="empty">No anchored scans yet.</td></tr>';
         return;
       }
-      if (!tools.length) { $('rows').innerHTML = '<tr><td colspan="5" class="empty">No anchored scans yet.</td></tr>'; return; }
-      $('rows').innerHTML = tools.map((t) => `
+      $('rows').innerHTML = stale + tools.map((t) => `
         <tr tabindex="0" data-id="${esc(t.id)}">
           <td><div class="tname">${esc(nameOf(t.id, t.meta))}${isFixture(t.meta) ? '<span class="tag" title="Synthetic attack sample, not a real published tool">fixture</span>' : ''}</div>
               <div class="torigin">${esc(t.meta?.origin ?? short(t.id, 10, 8))}</div></td>

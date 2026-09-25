@@ -58,11 +58,19 @@ const stmts = {
     ORDER BY anchored DESC, t.first_seen ASC
     LIMIT 10`),
 
+  // ANCHORED scans only. This feeds the public snapshot shown when the indexer
+  // is down, and anyone may POST /scan: an unanchored row is a stranger's
+  // request, not a verdict the registry stands behind. Joining the latest scan
+  // of any state would put that stranger on the front page the moment Envio
+  // blinked.
   recent: db.prepare(`
     SELECT t.tool_id, t.kind, t.name, t.origin,
-           s.verdict, s.score, s.created_at, s.anchor_tx, s.anchor_state
+           s.verdict, s.score, s.created_at, s.anchor_tx, s.anchor_state,
+           (SELECT COUNT(*) FROM scans x WHERE x.tool_id = t.tool_id AND x.anchor_state = 'confirmed') AS scan_count
     FROM tools t
-    JOIN scans s ON s.id = (SELECT id FROM scans WHERE tool_id = t.tool_id ORDER BY created_at DESC LIMIT 1)
+    JOIN scans s ON s.id = (
+      SELECT id FROM scans WHERE tool_id = t.tool_id AND anchor_state = 'confirmed'
+      ORDER BY created_at DESC LIMIT 1)
     ORDER BY s.created_at DESC LIMIT ?`),
 
   counts: db.prepare(`
