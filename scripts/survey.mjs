@@ -18,12 +18,14 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { scanMCP } from '../server/scanner/mcp.js';
-import { toolId as deriveToolId, contentHash as deriveContentHash } from './toolid.mjs';
+import { rulesVersion } from '../server/scanner/version.js';
+import { toolId as deriveToolId, contentHash as deriveContentHash, VERDICT } from './toolid.mjs';
 
 const DIR = process.env.CAPTURE_DIR ?? 'capture';
 const API = process.env.SEED_API_URL ?? 'http://127.0.0.1:8787';
 const ANCHOR = process.argv.includes('--anchor');
 const LEVEL = { SAFE: 'CLEAN', MEDIUM: 'WARN', HIGH: 'WARN', CRITICAL: 'CRITICAL' };
+const VERDICT_NAME = ['UNKNOWN', 'CLEAN', 'WARN', 'CRITICAL'];
 
 const reviewed = existsSync(join(DIR, 'reviewed.json'))
   ? new Set(JSON.parse(await readFile(join(DIR, 'reviewed.json'), 'utf8')))
@@ -155,6 +157,21 @@ console.log(`\n${totals.scanned} scanned: ${totals.clean} clean, ${totals.warn} 
 
 if (!ANCHOR) { console.log('dry run. anchor with: npm run survey -- --anchor'); process.exit(0); }
 
+// The API holds the attestor key and runs its OWN copy of the scanner. If it
+// was not restarted after a rule change it signs the old verdict, and the old
+// verdict is what lands on chain — under our name, on somebody else's package,
+// contradicting the report this same run just wrote. Verify before anchoring.
+const health = await fetch(`${API}/health`).then((r) => r.json()).catch((e) => ({ error: e.message }));
+if (health.error) { console.error(`cannot reach ${API}: ${health.error}`); process.exit(1); }
+if (health.rules !== rulesVersion) {
+  console.error(`ruleset mismatch — refusing to anchor.
+  this report:  ${rulesVersion}
+  the API:      ${health.rules ?? '(too old to say)'}
+The API signs with the rules it loaded at startup. Restart it and run this again:
+  pm2 restart monadguard-api --update-env`);
+  process.exit(1);
+}
+
 let failed = 0;
 for (const r of rows) {
   if (r.verdict === 'CRITICAL' && !reviewed.has(r.package)) {
@@ -164,12 +181,29 @@ for (const r of rows) {
   const { manifest } = JSON.parse(await readFile(join(DIR, files.find((f) => f.startsWith(r.package.replace(/[@/]/g, '_')))), 'utf8'));
   try {
     const prev = await fetch(`${API}/registry/${r.toolId}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-    if (prev?.tool?.latestContentHash?.toLowerCase() === r.contentHash.toLowerCase()) { console.log(`= ${r.package} already anchored`); continue; }
+    const sameContent = prev?.tool?.latestContentHash?.toLowerCase() === r.contentHash.toLowerCase();
+    // Identity is (manifest, verdict): the same manifest scored differently is a
+    // CORRECTION and must go on chain, or the registry keeps serving a verdict
+    // we no longer stand behind. The old one stays visible — that is the point
+    // of an append-only registry.
+    if (sameContent && Number(prev.tool.latestVerdict) === VERDICT[r.verdict] && Number(prev.tool.latestScore) === r.score) {
+      console.log(`= ${r.package} already anchored`);
+      continue;
+    }
+    if (sameContent) {
+      console.log(`~ ${r.package}: correcting ${VERDICT_NAME[prev.tool.latestVerdict]} ${prev.tool.latestScore} -> ${r.verdict} ${r.score}`);
+    }
     const s = await fetch(`${API}/scan`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ kind: 'mcp', name: manifest.name, origin: `npm:${r.package}`, manifest }),
     }).then((x) => x.json());
     if (s.error) throw new Error(s.error);
+    // Belt to the preflight's braces: catches a restart mid-run, and any way
+    // the two scanners could disagree that a version hash would not show.
+    if (s.rules !== rulesVersion) throw new Error(`the API switched rulesets mid-run (${s.rules} vs ${rulesVersion})`);
+    if (s.verdict !== VERDICT[r.verdict] || s.score !== r.score) {
+      throw new Error(`the API scanned it as ${VERDICT_NAME[s.verdict]} ${s.score}, this report says ${r.verdict} ${r.score} — not anchoring a verdict the report contradicts`);
+    }
     const a = await fetch(`${API}/anchor`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN ?? '' },
       body: JSON.stringify({ receiptHash: s.receipt.hash }),

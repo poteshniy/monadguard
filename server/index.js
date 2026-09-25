@@ -21,6 +21,7 @@ import { parseEther, isAddress, getAddress } from 'viem';
 import { serve } from '@hono/node-server';
 import { scan } from './scanner/engine.js';
 import { scanMCP } from './scanner/mcp.js';
+import { rulesVersion } from './scanner/version.js';
 import { freeScan } from './free_scan.js';
 import { recommend } from './recs.js';
 import { buildReceipt, receiptHash as hashReceipt, signReceiptJws, verifyReceiptJws, decodeReceipt, jwks, anchorDigest, signDigest, toVerdict } from './receipt.js';
@@ -59,6 +60,9 @@ app.get('/health', async (c) => {
     chainId: chain.CHAIN_ID,
     registry: chain.REGISTRY,
     rpc: chain.RPC_URL.replace(/\/v2\/.*$/, '/v2/***'),
+    // Which ruleset this process is signing with. A client that scanned with a
+    // different one must not let this node anchor on its behalf.
+    rules: rulesVersion,
     attestor: publicAttestor(key),
     stats: db.stats(),
   };
@@ -143,6 +147,7 @@ app.post('/scan', async (c) => {
     level: result.level,
     score: result.score,
     gate: payload.gate,
+    rules: rulesVersion,
     findings: withFixes(result.findings ?? []),
     receipt: { hash: receiptHash, uri: receiptURI, jws },
   };
