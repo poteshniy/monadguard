@@ -5,6 +5,7 @@
   "scripts": {
     "compile": "node compile.cjs",
     "deploy": "node scripts/deploy.mjs",
+    "gas": "node scripts/gas-estimate.mjs",
     "dev": "node server/index.js",
     "test": "node test/parity.test.mjs && node test/rules.test.mjs && node test/receipt.test.mjs && node scripts/attestor.test.mjs && node test/client.test.mjs",
     "e2e": "node scripts/e2e.mjs",
