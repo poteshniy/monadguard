@@ -2,6 +2,9 @@
  * Read-only checks of the PUBLIC surface, exactly as a judge sees it.
  * Never sends a mutation: an earlier probe used delete_* and it worked.
  */
+import { rulesVersion } from '../server/scanner/version.js';
+import { check as clientCheck } from '../client/index.js';
+
 const API = process.env.PUBLIC_API_URL ?? 'https://api.monadguard.com';
 const GQL = process.env.PUBLIC_GRAPHQL_URL ?? 'https://graphql.monadguard.com/v1/graphql';
 const ORIGIN = GQL.replace(/\/v1\/graphql$/, '');
@@ -23,6 +26,14 @@ export async function publicChecks() {
     r.ok && h.precompile && h.attestorRegistered
       ? add('OK', 'public api', `${API}/health — precompile + attestor ok`)
       : add('FAIL', 'public api', `${r.status} ${JSON.stringify(h).slice(0, 120)}`);
+
+    // The node signs with the rules it loaded at STARTUP. Fixing a rule in git
+    // and forgetting to restart once put verdicts on chain that this repo
+    // disagrees with. Nothing in the code can notice that from inside one
+    // process — only a comparison across the two can.
+    if (!h.rules) add('WARN', 'ruleset', 'this node is too old to report its ruleset');
+    else if (h.rules === rulesVersion) add('OK', 'ruleset', `node and repo agree (${rulesVersion})`);
+    else add('FAIL', 'ruleset', `node signs with ${h.rules}, this checkout is ${rulesVersion} — restart the API before anchoring anything`);
   } catch (e) { add('FAIL', 'public api', e.message); }
 
   // Hasura admin must be unreachable from outside: console 404, secret ignored.
@@ -84,6 +95,33 @@ export async function publicChecks() {
       ? add('OK', 'site', `${API.replace('api.', '')} serves the registry page`)
       : add('FAIL', 'site', `${r.status} — page missing`);
   } catch (e) { add('FAIL', 'site', e.message); }
+
+  // The page builds itself from these two. Serving the HTML while they answer
+  // with nothing is an empty page for the visitor and a green check here.
+  try {
+    const d = await fetch(`${API}/registry?limit=100`, { signal: AbortSignal.timeout(8000) }).then((r) => r.json());
+    const n = (d.tools ?? []).length;
+    if (!n) add('FAIL', 'registry feed', `${d.source} answered with 0 tools — the page renders empty`);
+    else if (d.source !== 'envio') add('WARN', 'registry feed', `${n} tools from ${d.source} — indexer down, page shows the dated snapshot`);
+    else add('OK', 'registry feed', `${n} tools via ${d.index ?? 'envio'}`);
+  } catch (e) { add('FAIL', 'registry feed', e.message); }
+
+  try {
+    const d = await fetch(`${API}/report`, { signal: AbortSignal.timeout(8000) }).then((r) => r.json());
+    d.totals?.scanned > 0
+      ? add('OK', 'survey', `${d.totals.scanned} servers, ${d.totals.tools} tool descriptions`)
+      : add('FAIL', 'survey', 'no report on this node — the Survey section stays hidden');
+  } catch (e) { add('FAIL', 'survey', e.message); }
+
+  // The one-liner in the README and in every outreach message. It once answered
+  // UNKNOWN on a tool that was in the registry, and nothing else would have
+  // caught it: every part was healthy, the composition was not.
+  try {
+    const r = await clientCheck({ kind: 'mcp', origin: 'npm:@modelcontextprotocol/server-memory' }, { api: API, timeoutMs: 8000 });
+    r.known && r.verdict === 'CLEAN'
+      ? add('OK', 'readme one-liner', `resolves to ${r.resolved?.name ?? r.toolId.slice(0, 10)} → ${r.verdict}`)
+      : add('FAIL', 'readme one-liner', `npx monadguard check npm:@modelcontextprotocol/server-memory → ${r.verdict}`);
+  } catch (e) { add('FAIL', 'readme one-liner', e.message); }
 
   return rows;
 }

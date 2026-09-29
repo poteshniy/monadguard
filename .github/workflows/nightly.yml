@@ -1,0 +1,29 @@
+name: nightly
+
+# The deployed node and this repository drift apart silently: a rule fixed here
+# and not restarted there, an indexer that stopped, an Envio Cloud deployment
+# that expired and took the fallback with it. Every one of those is invisible
+# until someone opens the site — which, for the next two weeks, is a judge.
+# A failed scheduled run emails the repository owner.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  public:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+
+      # Read-only, against the public surface, exactly as a visitor sees it.
+      - run: npm run check:public
+
+      # The published package, not the checkout: catches a release that never
+      # went out, or one that went out broken. Exit code 0 only on a fresh
+      # CLEAN verdict.
+      - name: npx monadguard check (published)
+        run: npx -y --prefer-online monadguard check npm:@modelcontextprotocol/server-memory
