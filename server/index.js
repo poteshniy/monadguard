@@ -68,6 +68,10 @@ app.get('/health', async (c) => {
   };
   if (chain.REGISTRY && key) {
     try {
+      // Names the network this node would actually write to, not the one it
+      // was configured for. They are two different facts.
+      await chain.assertChain();
+      out.chainVerified = true;
       out.precompile = await chain.precompileAlive(key);
       out.attestorRegistered = await chain.isRegistered((await chain.wallet()).account.address);
     } catch (e) {

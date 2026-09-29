@@ -27,10 +27,11 @@ export const REGISTRY = process.env.REGISTRY_ADDRESS ?? dep.address ?? null;
  * is enough; RPC_URL wins if set; the public endpoint is the last resort and
  * will rate-limit during a demo.
  */
+const ALCHEMY_HOST = CHAIN_ID === 143 ? 'monad-mainnet' : 'monad-testnet';
 export const RPC_URL = process.env.RPC_URL
   ?? (process.env.ALCHEMY_KEY
-    ? `https://monad-testnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`
-    : 'https://testnet-rpc.monad.xyz');
+    ? `https://${ALCHEMY_HOST}.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`
+    : CHAIN_ID === 143 ? 'https://rpc.monad.xyz' : 'https://testnet-rpc.monad.xyz');
 
 export const monad = defineChain({
   id: CHAIN_ID,
@@ -41,6 +42,33 @@ export const monad = defineChain({
 });
 
 export const publicClient = createPublicClient({ chain: monad, transport: http(RPC_URL) });
+
+/**
+ * The chain we think we are on, against the chain the RPC is actually on.
+ *
+ * Every piece of configuration that names a network is separate: CHAIN_ID,
+ * deployment.json, RPC_URL, the Alchemy host. Moving to mainnet means changing
+ * all of them, and getting one wrong is silent — the same key signs the same
+ * calldata, it just lands somewhere else, or against a contract that is not
+ * ours. Checked once, before the first write, and cached.
+ */
+let chainOk = null;
+export async function assertChain() {
+  if (chainOk) return chainOk;
+  const actual = await publicClient.getChainId();
+  if (actual !== CHAIN_ID) {
+    throw new Error(`chain mismatch: configured for ${CHAIN_ID}, the RPC at ${RPC_URL.replace(/\/v2\/.*$/, '/v2/***')} is ${actual} — fix CHAIN_ID/RPC_URL before signing anything`);
+  }
+  // A contract address is chain-specific too: the right chain with the wrong
+  // address fails as a revert at best, and as a write to a stranger's contract
+  // at worst.
+  if (REGISTRY) {
+    const code = await publicClient.getCode({ address: REGISTRY });
+    if (!code || code === '0x') throw new Error(`no contract at ${REGISTRY} on chain ${CHAIN_ID} — deployment.json is from another network`);
+  }
+  chainOk = { chainId: actual, registry: REGISTRY };
+  return chainOk;
+}
 
 export function wallet() {
   const pk = process.env.PRIVATE_KEY;
@@ -71,6 +99,7 @@ export const isRegistered = (address) => read('isRegistered', [address]);
 
 /** Bind a P-256 public key to the sending address, with proof of possession. */
 export async function registerAttestor(key, metaURI = '') {
+  await assertChain();
   const { account, client } = wallet();
   const digest = registrationDigest({ chainId: CHAIN_ID, registry: REGISTRY, attestor: account.address, x: key.x, y: key.y });
   const sig = signDigest(digest, key.privateKey);
@@ -85,6 +114,7 @@ export async function registerAttestor(key, metaURI = '') {
  * with its own key, which is the headless/CI path only.
  */
 export async function anchorScan({ toolId, contentHash, verdict, score, receiptHash, receiptURI = '', key, sig }) {
+  await assertChain();
   const { account, client } = wallet();
   const digest = anchorDigest({
     chainId: CHAIN_ID, registry: REGISTRY, attestor: account.address,

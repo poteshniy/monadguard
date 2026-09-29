@@ -23,9 +23,9 @@ export async function publicChecks() {
   try {
     const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(8000) });
     const h = await r.json();
-    r.ok && h.precompile && h.attestorRegistered
-      ? add('OK', 'public api', `${API}/health — precompile + attestor ok`)
-      : add('FAIL', 'public api', `${r.status} ${JSON.stringify(h).slice(0, 120)}`);
+    r.ok && h.chainVerified && h.precompile && h.attestorRegistered
+      ? add('OK', 'public api', `chain ${h.chainId} verified against the RPC — precompile + attestor ok`)
+      : add('FAIL', 'public api', h.chainError ? `chain ${h.chainId}: ${h.chainError}` : `${r.status} ${JSON.stringify(h).slice(0, 140)}`);
 
     // The node signs with the rules it loaded at STARTUP. Fixing a rule in git
     // and forgetting to restart once put verdicts on chain that this repo
