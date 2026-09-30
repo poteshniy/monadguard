@@ -24,7 +24,8 @@
     "capture": "node scripts/capture.mjs",
     "survey": "node scripts/survey.mjs",
     "capture:remote": "node scripts/capture-remote.mjs",
-    "anchor:capture": "node scripts/anchor-capture.mjs"
+    "anchor:capture": "node scripts/anchor-capture.mjs",
+    "agent:register": "node scripts/register-agent.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",

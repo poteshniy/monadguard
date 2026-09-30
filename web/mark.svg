@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512" role="img" aria-label="MonadGuard">
+  <rect width="32" height="32" rx="7" fill="#0a0713"/>
+  <path d="M16 4 6 8.2v6.6c0 6.2 4.2 11 10 12.4 5.8-1.4 10-6.2 10-12.4V8.2z" fill="#836EF9"/>
+  <path d="m11.6 16 3.2 3.2 6.1-6.6" stroke="#fbfaf9" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

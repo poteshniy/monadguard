@@ -30,6 +30,7 @@ import { loadAttestor, publicAttestor } from './keys.js';
 import * as db from './db.js';
 import * as chain from './chain.js';
 import * as envio from './envio.js';
+import { agentCard } from './agent-card.js';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
@@ -447,6 +448,19 @@ const CSP = [
   "img-src 'self' data:", "connect-src 'self'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
 const BUNDLE = new URL('../web/passkey.js', import.meta.url);
+// ─── ERC-8004 registration document ───────────────────────────────────────
+// The Identity Registry holds a URI; this is what it points at. Served under
+// both names because the ecosystem uses both.
+const MARK = new URL('../web/mark.svg', import.meta.url);
+for (const path of ['/.well-known/agent-registration.json', '/.well-known/agent-card.json']) {
+  app.get(path, (c) => c.json(agentCard()));
+}
+app.get('/mark.svg', (c) => {
+  try {
+    return c.body(readFileSync(MARK, 'utf8'), 200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' });
+  } catch { return c.text('not found', 404); }
+});
+
 app.get('/passkey.js', (c) => {
   let js;
   try { js = readFileSync(BUNDLE, 'utf8'); } catch { return c.text('// passkey bundle not built: npm run build:web', 404); }

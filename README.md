@@ -338,6 +338,23 @@ Without the second copy a lost server means unreadable backups.
 - **Static analysis.** Rules catch known patterns in manifests and skill text. They do not execute
   the tool, and a clean verdict is not a guarantee.
 
+## Registered as an agent (ERC-8004)
+
+MonadGuard is registered in the ERC-8004 Identity Registry on the same chain as its own registry,
+under the address that signs its verdicts. The registration document — name, services, and what
+this agent refuses to do — is served at
+[`/.well-known/agent-registration.json`](https://monadguard.com/.well-known/agent-registration.json)
+and generated from the running configuration, so it cannot drift from what the node actually does.
+
+```bash
+npm run agent:register            # dry run: print the document and what would be sent
+npm run agent:register -- --send  # mint the identity, then set AGENT_ID in .env and restart
+```
+
+It refuses to register a URI that does not resolve, or one whose live document differs from what
+this checkout would serve: the document is the registration, and an entry pointing at nothing is
+worse than no entry.
+
 ## Networks
 
 | | Chain ID | Envio |

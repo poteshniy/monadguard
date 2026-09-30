@@ -266,7 +266,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
 
   <section id="check">
     <h2>Check a tool</h2>
-    <p class="sub">Paste an MCP server's <code>tools/list</code> output or a SKILL.md. <b>Scan</b> returns the verdict and a signed receipt and writes nothing on-chain. With a passkey attestor unlocked below, <b>Sign &amp; anchor</b> scans in your browser and puts your verdict on Monad.</p>
+    <p class="sub">Paste an MCP server's <code>tools/list</code> output or a SKILL.md. <b>Scan</b> returns the verdict and a signed receipt and writes nothing on-chain. With a passkey attestor unlocked below, <b>Sign &amp; anchor</b> scans in your browser and puts your verdict on Monad.<br><span class="hint">A <b>hosted</b> server does not need pasting by hand: <code>npm run capture:remote -- https://host/mcp</code> opens an MCP session, reads its <code>tools/list</code> and closes, executing nothing. There is deliberately no box here that makes this server fetch a URL for you — that would turn it into a proxy into its own network.</span></p>
     <div class="panel">
       <form class="form" id="scanform">
         <div class="grid2">
