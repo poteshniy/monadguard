@@ -79,8 +79,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const argv = process.argv.slice(2);
   const flag = (n, d) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1]; };
   const url = argv.find((a) => /^https?:\/\//.test(a));
-  if (!url) { console.error('usage: npm run capture:remote -- https://host/mcp [--name label] [--out capture]'); process.exit(1); }
-  const out = flag('out', 'capture');
+  if (!url) { console.error('usage: npm run capture:remote -- https://host/mcp [--name label] [--out capture/remote]'); process.exit(1); }
+  const out = flag('out', 'capture/remote');
 
   process.stdout.write(`${url}  `);
   let cap;

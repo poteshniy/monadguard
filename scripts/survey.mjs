@@ -35,7 +35,16 @@ const files = (await readdir(DIR)).filter((f) => f.endsWith('.json') && !['index
 const rows = [];
 
 for (const f of files) {
-  const { name, downloads, manifest, capturedAt } = JSON.parse(await readFile(join(DIR, f), 'utf8'));
+  const entry = JSON.parse(await readFile(join(DIR, f), 'utf8'));
+  // This survey is about npm packages: it builds the origin as npm:<name> and
+  // reports coverage against the 40 it tried. A capture that carries its own
+  // origin came from somewhere else (a hosted endpoint) and belongs to
+  // anchor-capture, not here.
+  if (entry.origin && !entry.origin.startsWith('npm:')) {
+    console.log(`skip     ${String(entry.name).padEnd(44)} origin ${entry.origin} — not an npm capture`);
+    continue;
+  }
+  const { name, downloads, manifest, capturedAt } = entry;
   const result = scanMCP(manifest, true);
   const row = {
     package: name, downloads: downloads ?? null, capturedAt,

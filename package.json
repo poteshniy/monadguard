@@ -23,7 +23,8 @@
     "verify": "node scripts/verify.mjs",
     "capture": "node scripts/capture.mjs",
     "survey": "node scripts/survey.mjs",
-    "capture:remote": "node scripts/capture-remote.mjs"
+    "capture:remote": "node scripts/capture-remote.mjs",
+    "anchor:capture": "node scripts/anchor-capture.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",
