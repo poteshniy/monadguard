@@ -7,8 +7,8 @@ field_selection:
     - hash
 
 chains:
-  - id: 10143            # <-- 143 if the hackathon requires mainnet
-    start_block: 61019528       # <-- deployment.json:deployBlock
+  - id: 143            # <-- 143 if the hackathon requires mainnet
+    start_block: 109296752       # <-- deployment.json:deployBlock
     contracts:
       - name: ScanRegistry
         address:
