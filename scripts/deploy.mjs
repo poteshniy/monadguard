@@ -7,9 +7,16 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const CHAIN_ID = Number(process.env.CHAIN_ID ?? 10143);
-const RPC_URL = process.env.RPC_URL ?? (CHAIN_ID === 143
-  ? 'https://rpc.monad.xyz'
-  : 'https://testnet-rpc.monad.xyz');
+
+// RPC_URL in .env is the node's day-to-day endpoint, which is the testnet one.
+// Honouring it for a mainnet deploy means signing for 143 and posting to 10143 —
+// caught below, but only after a confusing failure. On mainnet, take the
+// explicit override, then the Alchemy mainnet host, then the public endpoint.
+const RPC_URL = CHAIN_ID === 143
+  ? (process.env.MAINNET_RPC_URL
+    ?? (process.env.ALCHEMY_KEY ? `https://monad-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}` : 'https://rpc.monad.xyz'))
+  : (process.env.RPC_URL
+    ?? (process.env.ALCHEMY_KEY ? `https://monad-testnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}` : 'https://testnet-rpc.monad.xyz'));
 const PK = process.env.PRIVATE_KEY;
 if (!PK) throw new Error('set PRIVATE_KEY');
 

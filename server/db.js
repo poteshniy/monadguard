@@ -22,6 +22,13 @@ const columns = new Set(db.prepare('PRAGMA table_info(scans)').all().map((c) => 
 for (const col of ['sig_r', 'sig_s']) {
   if (!columns.has(col)) db.exec(`ALTER TABLE scans ADD COLUMN ${col} TEXT`);
 }
+// Which chain a scan was anchored to. Until the mainnet move every row here was
+// testnet, so the existing ones are backfilled rather than left NULL: a row with
+// no chain would otherwise show up in every chain's view.
+if (!columns.has('chain_id')) {
+  db.exec('ALTER TABLE scans ADD COLUMN chain_id INTEGER');
+  db.exec('UPDATE scans SET chain_id = 10143 WHERE chain_id IS NULL');
+}
 
 const stmts = {
   upsertTool: db.prepare(`
@@ -31,13 +38,13 @@ const stmts = {
 
   insertScan: db.prepare(`
     INSERT INTO scans (tool_id, content_hash, verdict, score, findings_json,
-                       receipt_jws, receipt_hash, receipt_uri, created_at, anchor_state)
+                       receipt_jws, receipt_hash, receipt_uri, created_at, chain_id, anchor_state)
     VALUES (@tool_id, @content_hash, @verdict, @score, @findings_json,
-            @receipt_jws, @receipt_hash, @receipt_uri, @created_at, 'pending')
+            @receipt_jws, @receipt_hash, @receipt_uri, @created_at, @chain_id, 'pending')
     ON CONFLICT(receipt_hash) DO NOTHING`),
 
   byReceipt: db.prepare('SELECT * FROM scans WHERE receipt_hash = ?'),
-  byTool: db.prepare('SELECT * FROM scans WHERE tool_id = ? ORDER BY created_at DESC LIMIT ?'),
+  byTool: db.prepare('SELECT * FROM scans WHERE tool_id = ? AND chain_id = ? ORDER BY created_at DESC LIMIT ?'),
   tool: db.prepare('SELECT * FROM tools WHERE tool_id = ?'),
   pending: db.prepare("SELECT * FROM scans WHERE anchor_state IN ('pending','failed') ORDER BY created_at LIMIT ?"),
   queued: db.prepare(`
@@ -58,6 +65,10 @@ const stmts = {
     ORDER BY anchored DESC, t.first_seen ASC
     LIMIT 10`),
 
+  // Anchored on THIS chain. After the mainnet move the database still holds
+  // every testnet anchor, and showing those as the current registry would be a
+  // quiet lie — the contract they point at is a different one.
+
   // ANCHORED scans only. This feeds the public snapshot shown when the indexer
   // is down, and anyone may POST /scan: an unanchored row is a stranger's
   // request, not a verdict the registry stands behind. Joining the latest scan
@@ -66,12 +77,12 @@ const stmts = {
   recent: db.prepare(`
     SELECT t.tool_id, t.kind, t.name, t.origin,
            s.verdict, s.score, s.created_at, s.anchor_tx, s.anchor_state,
-           (SELECT COUNT(*) FROM scans x WHERE x.tool_id = t.tool_id AND x.anchor_state = 'confirmed') AS scan_count
+           (SELECT COUNT(*) FROM scans x WHERE x.tool_id = t.tool_id AND x.anchor_state = 'confirmed' AND x.chain_id = @chain) AS scan_count
     FROM tools t
     JOIN scans s ON s.id = (
-      SELECT id FROM scans WHERE tool_id = t.tool_id AND anchor_state = 'confirmed'
+      SELECT id FROM scans WHERE tool_id = t.tool_id AND anchor_state = 'confirmed' AND chain_id = @chain
       ORDER BY created_at DESC LIMIT 1)
-    ORDER BY s.created_at DESC LIMIT ?`),
+    ORDER BY s.created_at DESC LIMIT @limit`),
 
   counts: db.prepare(`
     SELECT COUNT(*) AS scans,
@@ -85,14 +96,14 @@ export const upsertTool = (t) => stmts.upsertTool.run({ ...t, first_seen: Math.f
 export const insertScan = (s) => stmts.insertScan.run(s);
 export const getScan = (receiptHash) => stmts.byReceipt.get(receiptHash);
 export const getTool = (toolId) => stmts.tool.get(toolId);
-export const scansForTool = (toolId, limit = 50) => stmts.byTool.all(toolId, limit);
+export const scansForTool = (toolId, chainId, limit = 50) => stmts.byTool.all(toolId, chainId, limit);
 export const pendingScans = (limit = 100) => stmts.pending.all(limit);
 export const queuedScans = (limit = 25) => stmts.queued.all(limit);
 export const queueScan = (receiptHash, sig) => stmts.saveSig.run(sig.r, sig.s, receiptHash);
 export const setState = (receiptHash, state) => stmts.setState.run(state, receiptHash);
 export const markAnchored = (receiptHash, tx, block, state = 'confirmed') =>
   stmts.markAnchor.run(tx, block, state, receiptHash);
-export const recentTools = (limit = 25) => stmts.recent.all(limit);
+export const recentTools = (chainId, limit = 25) => stmts.recent.all({ chain: chainId, limit });
 export const toolsByOrigin = (origin, kind = null) => stmts.byOrigin.all(origin, kind, kind);
 export const stats = () => stmts.counts.get();
 

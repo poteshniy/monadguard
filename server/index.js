@@ -138,6 +138,7 @@ app.post('/scan', async (c) => {
     receipt_hash: receiptHash,
     receipt_uri: receiptURI,
     created_at: payload.issued_at,
+    chain_id: chain.CHAIN_ID,
   });
   // Public scans stay off-chain. Otherwise the worker (which holds the server
   // key) would anchor anything anyone POSTs: gas drain + registry spam under
@@ -320,7 +321,7 @@ app.get('/registry/:toolId', async (c) => {
     c.header('x-envio-error', String(e.message).slice(0, 120));
   }
   // Fallback: indexer down or not caught up yet. Say so instead of pretending.
-  const scans = db.scansForTool(toolId).map((s) => ({
+  const scans = db.scansForTool(toolId, chain.CHAIN_ID).map((s) => ({
     contentHash: s.content_hash, verdict: s.verdict, score: s.score,
     receiptHash: s.receipt_hash, receiptURI: s.receipt_uri, receiptURL: receiptURL(s.receipt_hash),
     // `timestamp` under the name the indexed path uses: a consumer falling back
@@ -350,7 +351,7 @@ app.get('/registry', async (c) => {
     // what it anchored, in the SAME shape as the indexed path, so a consumer
     // renders a dated snapshot instead of an empty page. `asOf` is what makes
     // it honest: it is a cache, and it says how old it is.
-    const rows = db.recentTools(limit);
+    const rows = db.recentTools(chain.CHAIN_ID, limit);
     return c.json({
       source: 'local-cache',
       envioError: e.message,
