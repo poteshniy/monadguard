@@ -303,7 +303,11 @@ scans what came back and writes `capture/REPORT.md`.
 
 This executes third-party code, so it runs by hand, in Docker, never as a service and never on
 request from the internet: an endpoint that did this would be a remote code execution hole next
-to `PRIVATE_KEY`. `npm run survey -- --anchor` refuses to anchor a CRITICAL verdict on a real
+to `PRIVATE_KEY`. A **hosted** server needs none of that:
+`npm run capture:remote -- https://host/mcp` opens an MCP session over streamable HTTP (falling
+back to SSE), asks for the tool list and closes, executing nothing. Its origin is the endpoint —
+`mcp:https://host/mcp` — and the name in its identity is still the one the server declares.
+Two caps apply because the answer belongs to a stranger: 2000 tools and 4MB. `npm run survey -- --anchor` refuses to anchor a CRITICAL verdict on a real
 published package unless it is listed in `capture/reviewed.json` — an on-chain CRITICAL is a
 public accusation that cannot be edited later, so a human reads the findings first.
 
