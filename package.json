@@ -5,6 +5,7 @@
   "scripts": {
     "compile": "node compile.cjs",
     "deploy": "node scripts/deploy.mjs",
+    "register": "node scripts/register-attestor.mjs",
     "gas": "node scripts/gas-estimate.mjs",
     "indexer:config": "node scripts/indexer-config.mjs",
     "dev": "node server/index.js",
