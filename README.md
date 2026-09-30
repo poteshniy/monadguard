@@ -8,24 +8,31 @@ Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & A
 
 [![test](https://github.com/poteshniy/monadguard/actions/workflows/test.yml/badge.svg)](https://github.com/poteshniy/monadguard/actions/workflows/test.yml)
 
-## Live on Monad testnet (chain 10143)
+## Live on Monad mainnet (chain 143)
 
 | | |
 |---|---|
-| `ScanRegistry` | [`0xd0f6edd9be9cde91f671f4c2e129ee6105358436`](https://testnet.monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436) — deployed at block 61019528 |
-| First anchor | [block 61019661](https://testnet.monadvision.com/tx/0xa4fd862f04f98843dd57d921ff3a2b644101474b43bd85bce7637f64e0d35612) — P-256 signature verified on-chain by the `P256VERIFY` precompile |
-| Attestor | `0x79732eE50342D093402F7D5731d689D11E61c423` |
+| `ScanRegistry` | [`0xd0f6edd9be9cde91f671f4c2e129ee6105358436`](https://monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436) — deployed at block 109296752, source verified |
+| Registry contents | 18 published MCP servers, scanned from their real `tools/list` and anchored — see [Surveying real MCP servers](#surveying-real-mcp-servers) |
+| Attestors | `0x79732eE50342D093402F7D5731d689D11E61c423` (this node) · `0x0dc4d9F5057dC8a443AacEE3b7F367E2AbC18b79` (a passkey, holding no server key) |
+| P256VERIFY | verifies on mainnet, not only on testnet: every anchor carries a P-256 signature the contract checks through the precompile |
 | **Registry site** | **https://monadguard.com** — browse trust history, check a manifest |
 | API | https://api.monadguard.com/health |
-| GraphQL — Envio Cloud | https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql (hosted by Envio, independent of our server) |
+| GraphQL — Envio Cloud | https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql (hosted by Envio, independent of our server — being redeployed for mainnet; until then it still indexes testnet and the API will not read from it) |
 | GraphQL — self-hosted | https://graphql.monadguard.com/v1/graphql (read-only: `POST /v1/graphql` only) |
 
-The two indexes are built independently from the same contract events and return identical data.
+Both indexes are built independently from the same contract events. An index is only ever read
+when it answers for the chain this node is on — a registry from another chain is not a fallback,
+it is a different registry.
+
+Development happened on Monad testnet (chain 10143), where the same contract address holds the
+history: [`0xd0f6edd9be9cde91f671f4c2e129ee6105358436`](https://testnet.monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436),
+first anchor at [block 61019661](https://testnet.monadvision.com/tx/0xa4fd862f04f98843dd57d921ff3a2b644101474b43bd85bce7637f64e0d35612).
 
 Check it yourself — no keys, no clone:
 
 ```bash
-curl -s https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql -H 'content-type: application/json' \
+curl -s https://graphql.monadguard.com/v1/graphql -H 'content-type: application/json' \
   -d '{"query":"{ Scan { blockNumber verdict score txHash } Tool { id scanCount criticalCount } }"}'
 ```
 
@@ -71,7 +78,7 @@ every device; creating a second passkey gives a different one.
 
 Server support: `POST /receipt` (publish a receipt signed by any attestor), `POST /rpc` (JSON-RPC
 proxy, allow-listed methods, keeps the RPC key server-side), `POST /faucet` (one-time testnet gas
-per new attestor address, daily caps). Source: `web/src/passkey.js`, bundle: `npm run build:web`.
+per new attestor address, daily caps — refuses to run on mainnet). Source: `web/src/passkey.js`, bundle: `npm run build:web`.
 
 ## For integrators
 
@@ -168,7 +175,10 @@ npm run doctor                        # preflight: run this before and after eve
 npm test                              # parity + receipts + attestor, all offline
 
 # deploy (Alchemy RPC; falls back to the public endpoint if ALCHEMY_KEY is unset)
-PRIVATE_KEY=0x… ALCHEMY_KEY=… CHAIN_ID=10143 npm run deploy    # → deployment.json
+PRIVATE_KEY=0x… ALCHEMY_KEY=… CHAIN_ID=143 npm run deploy -- --yes-mainnet   # → deployment.json
+npm run gas                           # what that will cost, before it costs it
+npm run register                      # bind this node's P-256 key to its address
+npm run indexer:config -- --write     # point the indexer at the deployment
 
 # prove the whole path on-chain, including a negative control
 PRIVATE_KEY=0x… ALCHEMY_KEY=… MONADGUARD_PRF_HEX=$(openssl rand -hex 32) npm run e2e
@@ -248,7 +258,7 @@ not hand out an RPC key or the attestor's private key with it.
 
 | var | purpose |
 |---|---|
-| `PRIVATE_KEY` | funded testnet account; pays gas, and is the attestor address on-chain |
+| `PRIVATE_KEY` | funded account on the configured chain; pays gas, and is the attestor address on-chain |
 | `ALCHEMY_KEY` | Monad RPC transport (bounty). `RPC_URL` overrides it |
 | `REGISTRY_ADDRESS` | overrides `deployment.json` |
 | `MONADGUARD_PRF_HEX` | 32 bytes standing in for the passkey PRF output — **headless/CI only**; in production the browser holds this |
@@ -315,11 +325,12 @@ Without the second copy a lost server means unreadable backups.
   protection. Consumers should weigh attestors, not raw scan counts.
 - **Findings live off-chain.** The chain holds verdict, score and the receipt hash; the full
   findings are in the signed receipt at `receiptURI`, served by the attestor.
-- **The first anchors carry a development `receiptURI`** (`http://localhost:8787/receipt/…`).
-  On-chain data is immutable, so they stay that way. Receipts are content-addressed: every one is
-  served at `https://api.monadguard.com/receipt/<receiptHash>`, and the API returns that as
-  `receiptURL` next to the on-chain `receiptURI`. Anchors made after the fix carry the public URI,
-  and `npm run doctor` fails in production if `BASE_URL` points at localhost.
+- **Some early testnet anchors carry a development `receiptURI`** (`http://localhost:8787/receipt/…`).
+  On-chain data is immutable, so they stay that way; the mainnet registry has none. Receipts are
+  content-addressed regardless: every one is served at
+  `https://api.monadguard.com/receipt/<receiptHash>`, and the API returns that as `receiptURL`
+  next to the on-chain `receiptURI`. `npm run doctor` fails in production if `BASE_URL` points at
+  localhost.
 - **Static analysis.** Rules catch known patterns in manifests and skill text. They do not execute
   the tool, and a clean verdict is not a guarantee.
 
@@ -330,8 +341,10 @@ Without the second copy a lost server means unreadable backups.
 | Monad mainnet | **143** | GOLD |
 | Monad testnet | **10143** | GOLD |
 
-**Locked to testnet 10143** — free gas, and batch
-anchoring for the demo would otherwise cost real MON.
+**Mainnet 143 is the live registry.** Testnet 10143 holds the development history at the same
+contract address. The node runs one chain at a time: it refuses to sign unless the RPC agrees with
+the configured chain id and the registry address has code on it, and its local mirror records
+which chain each scan was anchored to.
 
 ---
 
