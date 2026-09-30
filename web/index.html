@@ -195,7 +195,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <a href="#verify">Verify</a>
       <a href="https://github.com/poteshniy/monadguard" rel="noopener">GitHub</a>
     </nav>
-    <span class="net"><span class="dot off" id="netdot"></span>Monad testnet · 10143</span>
+    <span class="net"><span class="dot off" id="netdot"></span><span id="netname">Monad</span></span>
   </div>
 </header>
 
@@ -309,7 +309,7 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
     <p class="sub">Nothing here needs to be trusted. The same data is on-chain and in two independent indexes.</p>
     <div class="verify">
       <div class="panel">
-        <div class="ep"><span class="k">ScanRegistry contract</span><a class="val" href="https://testnet.monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436" rel="noopener">0xd0f6edd9be9cde91f671f4c2e129ee6105358436</a><button class="copy" data-copy="0xd0f6edd9be9cde91f671f4c2e129ee6105358436">Copy</button></div>
+        <div class="ep"><span class="k">ScanRegistry contract</span><a class="val" id="ep-contract" href="https://monadvision.com/address/0xd0f6edd9be9cde91f671f4c2e129ee6105358436" rel="noopener">0xd0f6edd9be9cde91f671f4c2e129ee6105358436</a><button class="copy" data-copy="0xd0f6edd9be9cde91f671f4c2e129ee6105358436">Copy</button></div>
         <div class="ep"><span class="k">GraphQL · Envio Cloud</span><span class="val" id="ep-cloud">https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql</span><button class="copy" data-copy-from="ep-cloud">Copy</button></div>
         <div class="ep"><span class="k">GraphQL · self-hosted</span><span class="val">https://graphql.monadguard.com/v1/graphql</span><button class="copy" data-copy="https://graphql.monadguard.com/v1/graphql">Copy</button></div>
         <div class="ep"><span class="k">REST API</span><span class="val">https://api.monadguard.com/registry</span><button class="copy" data-copy="https://api.monadguard.com/registry">Copy</button></div>
@@ -332,7 +332,13 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
 
 <script>
 (() => {
-  const EXPLORER = 'https://testnet.monadvision.com';
+  // The network is whatever the API says it is reading. Hardcoding it here is
+  // how a page ends up linking testnet explorers for mainnet anchors.
+  const CHAINS = {
+    143: { name: 'Monad mainnet', explorer: 'https://monadvision.com' },
+    10143: { name: 'Monad testnet', explorer: 'https://testnet.monadvision.com' },
+  };
+  let EXPLORER = 'https://monadvision.com';
   const VERDICT = ['UNKNOWN', 'CLEAN', 'WARN', 'CRITICAL'];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -379,7 +385,11 @@ await client.connect(transport);   // only reached when a fresh CLEAN verdict ex
       $('netdot').classList.toggle('off', d.source !== 'envio');
       // Say which index answered when it is not ours, rather than quietly
       // serving different data than the endpoint we tell people to query.
-      if (d.index === 'envio-cloud') document.querySelector('.net').lastChild.textContent = ' Monad testnet · 10143 · via Envio Cloud';
+      const net = CHAINS[d.chainId] ?? { name: `chain ${d.chainId}`, explorer: 'https://monadvision.com' };
+      EXPLORER = net.explorer;
+      $('netname').textContent = `${net.name} · ${d.chainId}${d.index === 'envio-cloud' ? ' · via Envio Cloud' : ''}`;
+      const link = $('ep-contract');
+      if (link && d.registry) { link.href = `${EXPLORER}/address/${d.registry}`; }
       $('s-tools').textContent = tools.length;
       $('s-scans').textContent = tools.reduce((n, t) => n + (t.scanCount ?? 0), 0);
       $('s-crit').textContent = tools.filter((t) => Number(t.latestVerdict) === 3).length;

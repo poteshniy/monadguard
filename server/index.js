@@ -341,6 +341,8 @@ app.get('/registry', async (c) => {
     return c.json({
       source: 'envio',
       index: envio.lastSource,
+      chainId: chain.CHAIN_ID,
+      registry: chain.REGISTRY,
       graphql: process.env.PUBLIC_GRAPHQL_URL ?? 'https://graphql.monadguard.com/v1/graphql',
       cloudGraphql: process.env.ENVIO_CLOUD_GRAPHQL_URL ?? null,
       attestors: d.Attestor,
@@ -355,6 +357,8 @@ app.get('/registry', async (c) => {
     return c.json({
       source: 'local-cache',
       envioError: e.message,
+      chainId: chain.CHAIN_ID,
+      registry: chain.REGISTRY,
       asOf: rows[0]?.created_at ?? null,
       stats: db.stats(),
       tools: rows.map((t) => ({

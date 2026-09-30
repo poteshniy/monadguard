@@ -4,6 +4,8 @@
  * every anchor by every attestor. SQLite adds what the chain never stores:
  * human names and findings.
  */
+import { CHAIN_ID } from './chain.js';
+
 const URL_ = process.env.ENVIO_GRAPHQL_URL ?? 'http://127.0.0.1:8080/v1/graphql';
 const CLOUD = process.env.ENVIO_CLOUD_GRAPHQL_URL ?? null;
 
@@ -28,20 +30,31 @@ async function ask(url, query, variables) {
  * no API token); when it does, Envio Cloud keeps the page correct instead of
  * showing a stale registry that looks like the chain lost data.
  */
-const TIP = '{ Scan(order_by:{blockNumber:desc}, limit:1) { blockNumber } }';
-const head = async (url) => Number((await ask(url, TIP, {})).Scan?.[0]?.blockNumber ?? 0);
+// An index knows which chain it indexed. Comparing raw block numbers across two
+// chains is meaningless, and the failure is silent in the worst way: on the day
+// this node moved to mainnet the local index was empty at block 0 while the
+// cloud one still held testnet at block 66,000,000, so the "further along" index
+// won and the node served another chain's registry as its own. An index on the
+// wrong chain is not a fallback — it is a different registry.
+const TIP = '{ chain_metadata { chain_id block_height } }';
+async function head(url) {
+  const rows = (await ask(url, TIP, {})).chain_metadata ?? [];
+  const mine = rows.find((r) => Number(r.chain_id) === CHAIN_ID);
+  return mine ? Number(mine.block_height) : null;   // null: indexes some other chain
+}
 
-// A silent lag is worse than an outage: the page looks fine and shows a
-// registry that is missing anchors. Compare tips now and then and read from
-// whichever index is further along.
-let chosen = URL_, checkedAt = 0;
+let chosen = URL_, checkedAt = 0, eligible = [URL_];
 async function pick() {
   if (!CLOUD || Date.now() - checkedAt < 60_000) return chosen;
   checkedAt = Date.now();
   const [local, cloud] = await Promise.allSettled([head(URL_), head(CLOUD)]);
-  const l = local.status === 'fulfilled' ? local.value : -1;
-  const c = cloud.status === 'fulfilled' ? cloud.value : -1;
+  const at = (r) => (r.status === 'fulfilled' && r.value !== null ? r.value : -1);
+  const l = at(local), c = at(cloud);
+  eligible = [l >= 0 ? URL_ : null, c >= 0 ? CLOUD : null].filter(Boolean);
   chosen = c > l ? CLOUD : URL_;
+  // Both unusable: keep the local one so the error comes from the index we run,
+  // and /registry falls through to its own dated snapshot.
+  if (!eligible.length) chosen = URL_;
   return chosen;
 }
 
@@ -53,7 +66,8 @@ async function q(query, variables = {}) {
     return d;
   } catch (e) {
     const other = first === CLOUD ? URL_ : CLOUD;
-    if (!other) throw e;
+    // Only ever fall back to an index that answered for THIS chain.
+    if (!other || !eligible.includes(other)) throw e;
     const d = await ask(other, query, variables);
     lastSource = other === CLOUD ? 'envio-cloud' : 'local';
     chosen = other; checkedAt = Date.now();
