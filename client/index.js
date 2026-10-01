@@ -191,20 +191,32 @@ export class MonadGuardBlocked extends Error {
 /**
  * Throw unless the tool is safe to connect to.
  *
- * Defaults are deliberately strict: an UNKNOWN tool is not a safe tool, it is a
- * tool nobody has looked at. Loosen explicitly with `allowUnknown`.
+ * Defaults are deliberately strict, and CLEAN is the only verdict that clears
+ * on its own. UNKNOWN is not a safe tool: either nobody has looked at it, or an
+ * attestor looked and could not reach a verdict. Loosen either case explicitly
+ * with `allowUnknown`.
  *
  * @param {object} tool  {kind,name,origin} or {toolId}
- * @param {object} opts  {attestors?: string[] (trust only these), maxAgeDays=90,
+ * @param {object} opts  {attestors?: string[] (trust only these; [] trusts
+ *                        nobody and nothing clears), maxAgeDays=90,
  *                        allowWarn=false, allowUnknown=false, contentHash?}
  */
 export async function gate(tool, opts = {}) {
   const { attestors: trusted, maxAgeDays = 90, allowWarn = false, allowUnknown = false, contentHash: want } = opts;
   const r = await check(tool, opts);
+  // An empty trust list is not "trust anyone", it is "trust nobody". `[]` and
+  // `undefined` look identical to a truthiness check, and that difference is
+  // the entire meaning of the option: a caller who filtered their attestor list
+  // down to nothing has said that nothing can clear this.
+  if (Array.isArray(trusted) && trusted.length === 0) {
+    throw new MonadGuardBlocked(r, 'the trusted attestor list is empty — no verdict can clear this');
+  }
+
   const fresh = (t) => !maxAgeDays || Date.now() / 1000 - t <= maxAgeDays * 86400;
-  const pool = (trusted?.length
-    ? r.attestors.filter((a) => trusted.some((t) => t.toLowerCase() === String(a.address).toLowerCase()))
-    : r.attestors).filter((a) => fresh(a.timestamp) && (!want || !a.contentHash || a.contentHash.toLowerCase() === want.toLowerCase()));
+  const pinned = trusted === undefined
+    ? r.attestors
+    : r.attestors.filter((a) => trusted.some((t) => String(t).toLowerCase() === String(a.address).toLowerCase()));
+  const pool = pinned.filter((a) => fresh(a.timestamp) && (!want || !a.contentHash || a.contentHash.toLowerCase() === want.toLowerCase()));
 
   if (!r.known || pool.length === 0) {
     if (allowUnknown) return r;
@@ -214,10 +226,23 @@ export async function gate(tool, opts = {}) {
     const other = !r.known && r.candidates?.length
       ? ` — the registry knows ${r.candidates[0].origin} as "${r.candidates[0].name}"; pass that name to pin it`
       : '';
-    throw new MonadGuardBlocked(r, (trusted?.length ? 'no recent verdict from a trusted attestor' : 'no recent verdict on this tool') + other);
+    throw new MonadGuardBlocked(r, (trusted ? 'no recent verdict from a trusted attestor' : 'no recent verdict on this tool') + other);
   }
-  const worst = pool.find((a) => a.verdict === 'CRITICAL') ?? pool.find((a) => a.verdict === 'WARN');
-  if (worst?.verdict === 'CRITICAL') throw new MonadGuardBlocked(r, `attestor ${worst.address} flagged it CRITICAL (risk ${worst.score})`);
-  if (worst?.verdict === 'WARN' && !allowWarn) throw new MonadGuardBlocked(r, `attestor ${worst.address} flagged it WARN (risk ${worst.score})`);
+
+  const critical = pool.find((a) => a.verdict === 'CRITICAL');
+  if (critical) throw new MonadGuardBlocked(r, `attestor ${critical.address} flagged it CRITICAL (risk ${critical.score})`);
+  const warned = pool.find((a) => a.verdict === 'WARN');
+  if (warned && !allowWarn) throw new MonadGuardBlocked(r, `attestor ${warned.address} flagged it WARN (risk ${warned.score})`);
+
+  // Something has to actively clear this, and only CLEAN does so on its own —
+  // the same rule the contract's isCleared applies. WARN and UNKNOWN clear only
+  // when the caller opted into them by name. Reaching the end of the checks
+  // without a CLEAN used to mean "pass", which let a pool of nothing but
+  // UNKNOWN through: an attestor that looked and could not tell is not an
+  // attestor that looked and found it fine.
+  const clears = (v) => v === 'CLEAN' || (allowWarn && v === 'WARN') || (allowUnknown && v === 'UNKNOWN');
+  if (!pool.some((a) => clears(a.verdict))) {
+    throw new MonadGuardBlocked(r, `no attestor cleared it — ${pool.length} verdict(s) in scope, none CLEAN`);
+  }
   return r;
 }

@@ -35,8 +35,11 @@ Registry: https://monadguard.com`);
 // from the package path is worse than not guessing — npm's server-memory calls
 // itself memory-server, and a wrong guess reports UNKNOWN on a scanned tool.
 const tool = { kind: flag('kind', 'mcp'), origin, ...(flag('name') ? { name: flag('name') } : {}) };
+// `--attestor` repeated pins the attestors we accept. No flag means no pin —
+// and that has to reach gate() as undefined, not as an empty array: an empty
+// trust list there means "trust nobody", which would block every lookup.
 const attestors = argv.reduce((a, v, i) => (v === '--attestor' ? [...a, argv[i + 1]] : a), []);
-const opts = { attestors, maxAgeDays: Number(flag('max-age-days', 90)), allowWarn: has('allow-warn') };
+const opts = { maxAgeDays: Number(flag('max-age-days', 90)), allowWarn: has('allow-warn'), ...(attestors.length ? { attestors } : {}) };
 
 try {
   const r = await gate(tool, opts);

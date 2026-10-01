@@ -40,16 +40,39 @@ try {
 
 | option | default | meaning |
 |---|---|---|
-| `attestors` | any | trust only these addresses; everyone else's verdict is ignored |
+| `attestors` | any | trust only these addresses; everyone else's verdict is ignored. `[]` trusts nobody, so nothing clears |
 | `maxAgeDays` | 90 | a verdict older than this does not count |
 | `allowWarn` | false | accept WARN |
-| `allowUnknown` | false | accept a tool nobody has scanned |
+| `allowUnknown` | false | accept a tool nobody has scanned, or one whose attestors could not tell |
 | `contentHash` | — | require the clearance to cover *this exact* manifest (rug-pull protection) |
 | `resolve` | `'auto'` | resolve the origin to a declared name when you gave none. `true`: also when the name you gave missed. `false`: never |
 | `graphql` / `api` | public | point at your own indexer or mirror (also `MONADGUARD_GRAPHQL` / `MONADGUARD_API`) |
 
 `check()` returns the full picture — every attestor's own latest verdict, scores, tx hashes —
 so you can apply your own policy instead of ours.
+
+### What clears the gate
+
+CLEAN, and nothing else on its own. Four verdicts can be anchored, and the two
+in the middle are the ones worth being precise about:
+
+| in scope | `gate()` |
+|---|---|
+| CLEAN | passes |
+| WARN | throws, unless `allowWarn` |
+| CRITICAL | throws, always |
+| UNKNOWN — an attestor looked and could not tell | throws, unless `allowUnknown` |
+| nothing in scope | throws, unless `allowUnknown` |
+
+An UNKNOWN on chain is not an absence of a verdict, it is an attestor saying it
+could not reach one — which is not the same as finding the tool fine, and does
+not clear it. One attestor's CRITICAL outweighs another's CLEAN. An empty
+`attestors` array means no verdict is in scope at all, so the gate stays shut
+whatever the chain says: a trust list that filtered down to nothing is a reason
+to stop, not to accept anyone.
+
+Versions before 0.2.2 passed an all-UNKNOWN pool and ignored an empty
+`attestors` array — both fail-open. Upgrade if you call `gate()`.
 
 ### As an MCP server
 

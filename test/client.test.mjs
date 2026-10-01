@@ -4,6 +4,7 @@
  * and `gate` fails closed.
  */
 import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { toolId as canonical } from '../scripts/toolid.mjs';
 import { toolId, check, gate, MonadGuardBlocked } from '../client/index.js';
@@ -93,5 +94,82 @@ assert.equal((await check(guessed, { ...resolving, resolve: false })).candidates
 candidates = [];
 await assert.rejects(() => gate({ kind: 'mcp', origin: 'npm:nothing-here' }, resolving), MonadGuardBlocked, 'unresolvable origin must fail closed');
 
+// ── The full verdict matrix ────────────────────────────────────────────────
+// Reported from outside (Joe, Tanilo). Two holes, both of them fail-open:
+//
+//   1. An attestor can anchor UNKNOWN — "I looked, I could not tell". The gate
+//      only ever threw on CRITICAL and WARN, so a pool of nothing but UNKNOWN
+//      fell off the end of the function into `return r`. An undetermined tool
+//      read as a cleared one, with allowUnknown:false set.
+//   2. `attestors: []` is a caller saying "trust nobody" — usually because
+//      their own trust list filtered down to nothing. A truthiness check reads
+//      it the same as `undefined` and dropped the filter entirely, so an empty
+//      trust list trusted everyone.
+//
+// Each row below fails on the code as shipped in 0.2.1, so they stay.
+byId = {};
+const id = canonical(tool);
+const pinned = { ...opts, attestors: ['0xa1'], contentHash: '0xaa' };
+const matrix = [
+  [1, 'CLEAN', 'pass'],
+  [2, 'WARN', 'block'],
+  [3, 'CRITICAL', 'block'],
+  [0, 'UNKNOWN', 'block'],   // ← the reported case
+];
+for (const [v, label, want] of matrix) {
+  reply = T(v, [scan(v, '0xa1', 0, v * 30)]);
+  if (want === 'pass') assert.equal((await gate(tool, pinned)).toolId, id, `${label} must pass`);
+  else await assert.rejects(() => gate(tool, pinned), MonadGuardBlocked, `${label} must block`);
+}
+
+// allowUnknown is the opt-in, and it is the only thing that lets UNKNOWN clear.
+reply = T(0, [scan(0, '0xa1')]);
+assert.equal((await gate(tool, { ...pinned, allowUnknown: true })).verdict, 'UNKNOWN', 'allowUnknown must pass an UNKNOWN verdict');
+// It is not an opt-in to anything worse: a CRITICAL attestation still blocks.
+reply = T(3, [scan(3, '0xa1', 0, 95)]);
+await assert.rejects(() => gate(tool, { ...pinned, allowUnknown: true }), /CRITICAL/, 'allowUnknown must not pass CRITICAL');
+reply = T(2, [scan(2, '0xa1', 0, 20)]);
+await assert.rejects(() => gate(tool, { ...pinned, allowUnknown: true }), /WARN/, 'allowUnknown must not pass WARN');
+
+// CLEAN stays the only verdict that clears on its own. An UNKNOWN sitting
+// beside a CLEAN does not block it — somebody did clear it.
+reply = T(1, [scan(0, '0xa1'), scan(1, '0xa2')]);
+assert.equal((await gate(tool, { ...opts, contentHash: '0xaa' })).verdict, 'CLEAN', 'a CLEAN alongside an UNKNOWN must still clear');
+
+// attestors: [] — trust nobody. Nothing clears, whatever the chain says, and
+// allowUnknown does not reopen it: the caller named no one who could clear it.
+for (const v of [0, 1, 2, 3]) {
+  reply = T(v, [scan(v, '0xa1')]);
+  await assert.rejects(() => gate(tool, { ...opts, attestors: [] }), MonadGuardBlocked, `attestors:[] must block verdict ${v}`);
+  await assert.rejects(() => gate(tool, { ...opts, attestors: [], allowUnknown: true }), MonadGuardBlocked, `attestors:[] must block verdict ${v} even with allowUnknown`);
+  await assert.rejects(() => gate(tool, { ...opts, attestors: [], allowWarn: true }), MonadGuardBlocked, `attestors:[] must block verdict ${v} even with allowWarn`);
+}
+
+// attestors: undefined — no attestor filter. Unchanged behaviour.
+reply = T(1, [scan(1, '0xanyone')]);
+assert.equal((await gate(tool, { ...opts, attestors: undefined })).verdict, 'CLEAN', 'attestors:undefined must not filter');
+assert.equal((await gate(tool, opts)).verdict, 'CLEAN', 'omitting attestors must not filter');
+
+// The CLI is the README one-liner, and it builds its attestor list by reducing
+// over argv — which yields `[]` when nobody passed `--attestor`. Under the rule
+// above that would mean "trust nobody" and block every lookup, so the CLI has
+// to send no option at all. Checked through the real binary, because the bug
+// only exists in how it calls gate().
+reply = T(1, [scan(1, '0xa1')]);
+const cli = (args) => new Promise((done) => {
+  const p = spawn(process.execPath, ['client/cli.mjs', ...args], {
+    env: { ...process.env, MONADGUARD_GRAPHQL: graphql, MONADGUARD_API: api },
+  });
+  let out = '';
+  p.stdout.on('data', (d) => (out += d));
+  p.stderr.on('data', (d) => (out += d));
+  p.on('close', (code) => done({ code, out }));
+});
+const bare = await cli(['check', tool.origin, '--name', tool.name]);
+assert.equal(bare.code, 0, `the CLI must pass a CLEAN tool with no --attestor:\n${bare.out}`);
+assert.match(bare.out, /CLEAN/, 'the CLI must report it CLEAN');
+const wrongPin = await cli(['check', tool.origin, '--name', tool.name, '--attestor', '0xsomebody-else']);
+assert.equal(wrongPin.code, 1, 'the CLI must still block when the pin does not match');
+
 srv.close();
-console.log('CLIENT OK — toolId parity, fail-closed gate, attestor pinning, freshness, origin resolution');
+console.log('CLIENT OK — toolId parity, fail-closed gate, verdict matrix, empty trust list, CLI pinning, freshness, origin resolution');
