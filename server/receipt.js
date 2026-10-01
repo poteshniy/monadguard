@@ -46,7 +46,12 @@ export function toVerdict(level) {
   }
 }
 
-/** Consumer-facing gate. Anything but a clean scan halts the connection. */
+/**
+ * Consumer-facing gate. Only a scan that ran and found nothing clears; every
+ * other level halts, including UNSCANNED and any level this function has not
+ * heard of. Clearing has to be the branch that is reached deliberately, not the
+ * one left over when nothing else matched.
+ */
 export function toGate(level, score) {
   if (level === 'SAFE' && score === 0) return { gate: 'act', confidence: 0.95 };
   if (level === 'SAFE') return { gate: 'act', confidence: 0.75 };
@@ -74,6 +79,13 @@ const strip = (hex) => hex.slice(2).padStart(64, '0');
  * byte-identical. That makes `receiptHash` a real content address.
  */
 export function buildReceipt({ tool, contentHash, result, attestorKey, issuedAt, ttlDays = 90 }) {
+  // A receipt is an attestor putting their name to a statement about a specific
+  // manifest. There is no honest statement to make about one that was never
+  // read, so this refuses rather than signing a cautious-looking verdict: an
+  // unsigned error is recoverable, a signed one is on chain forever.
+  if (result?.scanned === false) {
+    throw new Error(`refusing to sign a receipt for a manifest that was not scanned: ${result.reason ?? 'no reason given'}`);
+  }
   const ts = issuedAt ?? Math.floor(Date.now() / 1000);
   const { gate, confidence } = toGate(result.level, result.score);
   return {

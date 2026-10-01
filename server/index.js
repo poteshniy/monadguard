@@ -118,7 +118,18 @@ app.post('/scan', async (c) => {
   if (!key) return c.json({ error: 'no attestor key on this node — sign in the browser and POST /anchor' }, 503);
 
   const raw = kind === 'mcp' ? JSON.stringify(manifest ?? JSON.parse(content)) : content;
+  // Whitespace is not content. `!content` lets a string of spaces through, and
+  // the engine finds nothing in it for the same reason it finds nothing in an
+  // empty file — which would then read as CLEAN.
+  if (kind !== 'mcp' && !String(content).trim()) return c.json({ error: 'content is empty — there is nothing to scan' }, 422);
+
   const result = kind === 'mcp' ? scanMCP(manifest ?? JSON.parse(content), true) : scan(content);
+  // The scanner declined to examine this one. Say so with the reason, and sign
+  // nothing: a caller is entitled to know we did not look, and is not entitled
+  // to a verdict we cannot stand behind.
+  if (result.scanned === false) {
+    return c.json({ error: result.reason, scanned: false, level: result.level, verdict: 'UNKNOWN', rules: rulesVersion }, 422);
+  }
 
   const tool = { id: deriveToolId({ kind, name, origin }), kind, name, origin };
   const contentHash = deriveContentHash(raw);

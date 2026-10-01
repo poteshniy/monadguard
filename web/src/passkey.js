@@ -139,7 +139,11 @@ export async function scanAndAnchor({ kind, name, origin, manifest, content }, o
 
   onStep('scan');
   const raw = kind === 'mcp' ? JSON.stringify(manifest) : content;
+  if (kind !== 'mcp' && !String(content ?? '').trim()) throw new Error('there is nothing to scan — the content is empty');
   const result = kind === 'mcp' ? scanMCP(manifest, true) : scan(content);
+  // buildReceipt would refuse anyway; stopping here says why, in the UI, before
+  // the passkey prompt rather than after it.
+  if (result.scanned === false) throw new Error(result.reason);
   const tool = { id: deriveToolId({ kind, name, origin }), kind, name, origin };
   const contentHash = deriveContentHash(raw);
 

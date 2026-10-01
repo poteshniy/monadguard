@@ -151,18 +151,51 @@ function levenshtein(a, b) {
   return dp[a.length][b.length];
 }
 
+export const MAX_MANIFEST_BYTES = 512 * 1024;
+
+/**
+ * The level for a manifest that was not examined.
+ *
+ * It is deliberately not one of the scanner's own levels: `toVerdict` maps it
+ * to UNKNOWN and `toGate` halts on it, both by the default branch they already
+ * had, and `buildReceipt` refuses to sign it at all. "We did not look" must not
+ * be able to turn into an assertion about the thing we did not look at.
+ */
+export const UNSCANNED = 'UNSCANNED';
+
+const unscanned = (reason) => ({
+  scanned: false, reason,
+  score: 0, level: UNSCANNED, findings: [],
+  crits: 0, highs: 0, mediums: 0, lows: 0,
+  manifest_stats: { tools: 0, resources: 0, prompts: 0 },
+});
+
 /**
  * Scan MCP manifest JSON
  * @param {object} manifest - parsed MCP server manifest
  * @param {boolean} fullScan - true for paid full scan, false for free tier
  */
 export function scanMCP(manifest, fullScan = false) {
-  // Safety: limit manifest size to prevent DoS
-  const manifestStr = JSON.stringify(manifest);
-  if (manifestStr.length > 512 * 1024) {
-    return { score: 0, level: 'SAFE', findings: [], crits: 0, highs: 0, mediums: 0, lows: 0,
-      manifest_stats: { tools: 0, resources: 0, prompts: 0 }, error: 'Manifest too large (max 512KB)' };
+  const manifestStr = JSON.stringify(manifest ?? null);
+  // Over the size cap we do not read the manifest at all. That has to come back
+  // as "not scanned", never as a level: this used to return SAFE with an error
+  // field nobody read, so a hostile server could pad its tools/list past the cap
+  // and collect a signed CLEAN at confidence 0.95 — from the one party whose
+  // input we are supposed to distrust.
+  if (manifestStr.length > MAX_MANIFEST_BYTES) {
+    return unscanned(`manifest is ${Math.round(manifestStr.length / 1024)}KB, over the ${MAX_MANIFEST_BYTES / 1024}KB cap — it was not read, so nothing is asserted about it`);
   }
+
+  // Nothing declared is not the same as nothing wrong. A failed capture, a
+  // server answering tools/list with an empty array, a manifest that lost its
+  // contents in transit — all of them examine cleanly for the same reason:
+  // there was nothing to examine. The server's own name is not an interface,
+  // so it does not count as something to look at.
+  const declared = (manifest?.tools?.length ?? 0) + (manifest?.resources?.length ?? 0) + (manifest?.prompts?.length ?? 0);
+  if (declared === 0) {
+    return unscanned('this manifest declares no tools, resources or prompts — there is nothing to examine');
+  }
+
   const findings = [];
   const chunks = extractTextFromManifest(manifest);
 
@@ -231,6 +264,7 @@ export function scanMCP(manifest, fullScan = false) {
   const resourceCount = (manifest.resources || []).length;
 
   return {
+    scanned: true,
     score: Math.round(score),
     level,
     findings: fullScan ? findings : findings.slice(0, 3),
