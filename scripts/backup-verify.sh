@@ -83,7 +83,11 @@ process.exit(bad ? 1 : 0);
 node -e '
 const Database = require("better-sqlite3");
 const db = new Database(process.argv[1], { readonly: true });
-const { n, missing } = db.prepare("SELECT COUNT(*) n, SUM(CASE WHEN receipt_jws IS NULL OR receipt_jws = \"\" THEN 1 ELSE 0 END) missing FROM scans").get();
+// length() rather than a comparison against an empty string: inside a
+// single-quoted shell argument there is no way to write one, and in SQLite
+// double quotes are an identifier, not a literal — "" parses as a column
+// named nothing, which is how this check first shipped broken.
+const { n, missing } = db.prepare("SELECT COUNT(*) n, SUM(CASE WHEN receipt_jws IS NULL OR length(receipt_jws) = 0 THEN 1 ELSE 0 END) missing FROM scans").get();
 if (!n) { console.log("FAIL  no scans in the restored database"); process.exit(1); }
 if (missing) { console.log(`FAIL  ${missing} of ${n} restored scans have no signed receipt — those links would be dead after a restore`); process.exit(1); }
 console.log(`ok    all ${n} restored scans carry their signed receipt`);
