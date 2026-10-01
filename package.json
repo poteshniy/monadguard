@@ -25,7 +25,8 @@
     "survey": "node scripts/survey.mjs",
     "capture:remote": "node scripts/capture-remote.mjs",
     "anchor:capture": "node scripts/anchor-capture.mjs",
-    "agent:register": "node scripts/register-agent.mjs"
+    "agent:register": "node scripts/register-agent.mjs",
+    "backup:verify": "bash scripts/backup-verify.sh"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",
