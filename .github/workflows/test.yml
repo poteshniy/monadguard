@@ -10,3 +10,6 @@ jobs:
       - run: npm ci
       - run: npm run secrets
       - run: npm test
+      # Cross-implementation vectors, pinned as files — never a live fetch, so a
+      # red build here means the receipt format moved, not that a server is down.
+      - run: node test/interop.test.mjs

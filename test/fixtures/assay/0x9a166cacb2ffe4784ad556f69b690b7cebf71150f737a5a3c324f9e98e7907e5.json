@@ -1,0 +1,27 @@
+{
+  "receiptHash": "0x9a166cacb2ffe4784ad556f69b690b7cebf71150f737a5a3c324f9e98e7907e5",
+  "chainId": 10143,
+  "network": "Monad testnet",
+  "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6IjJKYzZXSlNqdk5TTDdqaWRfWGFWa0c0aVZPSUJyN0hTcWhrMUtpRjVxZzAifQ.eyJob3N0Ijp7ImFnZW50SWQiOiJlcmM4MDA0OjEwMTQzOjE5NjIiLCJhbGciOiJFUzI1NiIsImtleUlkIjoiMkpjNldKU2p2TlNMN2ppZF9YYVZrRzRpVk9JQnI3SFNxaGsxS2lGNXFnMCJ9LCJtb2RlbCI6ImdlbW1hLTQtMzFiLWl0Iiwibm9uY2UiOiIweGUwZmRhODc0NDFiOWJhMTJkZGY5YmZlMmFjMjFjNzFiIiwicmVxIjp7ImNvbW1pdCI6IjB4Y2E0YTEzNjlhMzhjODc0YWY1MjlmYWRkYmI3ODM2NDIxMTc4M2UzZDYxYjkwZDEzMGRjYzQwOTcxZmM3YmNmYSIsInBhcmFtcyI6eyJtYXhfdG9rZW5zIjoyNTYsInRlbXBlcmF0dXJlIjowfX0sInJlcyI6eyJjb21taXQiOiIweDY5Nzk3MWRmNDAyYzViNjk5MGU1ZTA3MzBjMTM1YmNiNmYwYmY2OWIzNzYwZjY4MjkwMTFmMGM5OGIwMjVkYTgiLCJmaW5pc2giOiJzdG9wIiwidG9rZW5zSW4iOjMsInRva2Vuc091dCI6MX0sInQiOjE3OTA5NTQzMjQ0OTUsInYiOiJhc3NheS1yZWNlaXB0LzAifQ.AmL6dwFXumVw3EeXGyyprL-0OGqBl9bsat2RAeBHO19NNUpZeMZgTjT2l_QRdiC5KyN53eg_qo94e-dDs9nzAg",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "bVK6Lx-8wq5USFPKiWJzjczOPLXAuxM6f9XcF16ZK6s",
+        "y": "Mm9U0dL2l3zaKvoBJdbd9z4L0nKrJ9WUQ-OMUQIbnWE",
+        "kid": "2Jc6WJSjvNSL7jid_XaVkG4iVOIBr7HSqhk1KiF5qg0",
+        "alg": "ES256",
+        "use": "sig"
+      }
+    ]
+  },
+  "anchor": {
+    "contract": "0x63e4F42E6d254ed6aAE735F9F4169BbFd12c1a24",
+    "agentId": 1962,
+    "root": "0x8c89bd8a6495777123457221aae3a0ecf237dd6bd057b404a034ae4acdabbab2",
+    "proof": [],
+    "tx": "0x41f73bcaa5270d16df2cbdafc920b0fa7f6e87890f968acece7f3c6a99a7a867"
+  },
+  "source": "https://34-45-1-81.sslip.io/v1/receipts/0x9a166cacb2ffe4784ad556f69b690b7cebf71150f737a5a3c324f9e98e7907e5"
+}
