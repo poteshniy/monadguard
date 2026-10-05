@@ -19,7 +19,7 @@ export const VERDICTS = ['UNKNOWN', 'CLEAN', 'WARN', 'CRITICAL'];
 // Point these at your own indexer and node to run the registry yourself: the
 // contract is public, so nothing here has to be ours.
 export const DEFAULTS = {
-  graphql: process.env.MONADGUARD_GRAPHQL ?? 'https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql',
+  graphql: process.env.MONADGUARD_GRAPHQL ?? 'https://indexer.dev.hyperindex.xyz/c532682/v1/graphql',
   api: process.env.MONADGUARD_API ?? 'https://api.monadguard.com',
   timeoutMs: Number(process.env.MONADGUARD_TIMEOUT_MS ?? 6000),
 };

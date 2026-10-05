@@ -76,7 +76,7 @@ export async function publicChecks() {
   } catch (e) { add('WARN', 'receipt URIs', e.message); }
 
   // Envio Cloud: independent index, must agree with ours.
-  const CLOUD = process.env.PUBLIC_ENVIO_CLOUD_URL ?? 'https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql';
+  const CLOUD = process.env.PUBLIC_ENVIO_CLOUD_URL ?? 'https://indexer.dev.hyperindex.xyz/c532682/v1/graphql';
   try {
     const body = JSON.stringify({ query: '{ Scan { id verdict score } }' });
     const get = (u) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(8000) }).then((r) => r.json());

@@ -18,7 +18,7 @@ Hackathon: Monad **Metropolis**, 1 Sep – 13 Oct. Track 04 (Trust, Identity & A
 | P256VERIFY | verifies on mainnet, not only on testnet: every anchor carries a P-256 signature the contract checks through the precompile |
 | **Registry site** | **https://monadguard.com** — browse trust history, check a manifest |
 | API | https://api.monadguard.com/health |
-| GraphQL — Envio Cloud | https://indexer.dev.hyperindex.xyz/4fe6364/v1/graphql (hosted by Envio, independent of our server — being redeployed for mainnet; until then it still indexes testnet and the API will not read from it) |
+| GraphQL — Envio Cloud | https://indexer.dev.hyperindex.xyz/c532682/v1/graphql (hosted by Envio, independent of our server — indexing mainnet 143) |
 | GraphQL — self-hosted | https://graphql.monadguard.com/v1/graphql (read-only: `POST /v1/graphql` only) |
 
 Both indexes are built independently from the same contract events. An index is only ever read
@@ -133,6 +133,42 @@ records attestations about the *tools those agents connect to* — the other hal
 trust graph. An attestor in MonadGuard can itself be an ERC-8004 agent, which is the natural
 composition: a registered agent whose job is scanning, whose findings are on the same chain
 as its identity.
+
+## Interoperability — another implementation verifies these receipts
+
+[Assay](https://github.com/trudransh/Assay) signs receipts in the same envelope we do: an ES256
+compact JWS whose payload is the RFC 8785 (JCS) bytes of the receipt, the key published at
+`/.well-known/jwks.json`, and `receiptHash = sha256(payload)`. **MonadGuard checks the tool.
+Assay checks the model host that answered.**
+
+Each project verifies the other's receipts, in both directions, from files pinned in its own
+repository — never a live fetch, so neither build depends on the other side's server being up.
+
+| Date | Verifier | Receipts checked | Result |
+|---|---|---|---|
+| 3 Oct 2026 | Assay SDK, `sdk/test/interop.test.ts` (`32a8f2f`) | 3 MonadGuard receipts, Monad mainnet | all pass |
+| 4 Oct 2026 | MonadGuard `scripts/verify-foreign.mjs` (`bbacb8b`) | Assay receipt `0x9a166cac…07e5`, Monad testnet | 10 of 10, including byte-exact JCS |
+
+Ours runs on every push: `test/interop.test.mjs` checks the pinned vectors in
+`test/fixtures/assay/`, rejects a receipt with one byte of the payload flipped, and runs the same
+checks against one of our own receipts so the vector format is not shaped around theirs.
+
+The check that matters is the byte-exact one. Re-canonicalizing their parsed payload with *our*
+JCS has to reproduce the signed bytes — not equivalent JSON, the same bytes. Anything can emit
+JSON that parses; only a canonicalizer that agrees with ours reproduces a signed payload.
+
+What is **not** shared: the anchoring model. We write one record per verdict and the contract
+verifies the attestor's P-256 signature through `P256VERIFY` at write time, so every row was
+checked on the way in. Assay batches receipts into a Merkle tree and anchors the root, verifying
+an individual receipt against it afterwards with a proof. Both check a signature at write time —
+every record on our side, every batch on theirs. A consumer should know which one they are
+reading.
+
+To point this verifier at any other implementation:
+
+```bash
+node scripts/verify-foreign.mjs --receipt <url> [--jwks <url>] [--expect 0x…]
+```
 
 ## Who adopts this, and why not roll their own
 
