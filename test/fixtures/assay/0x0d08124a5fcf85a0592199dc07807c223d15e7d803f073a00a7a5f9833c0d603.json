@@ -1,0 +1,27 @@
+{
+  "receiptHash": "0x0d08124a5fcf85a0592199dc07807c223d15e7d803f073a00a7a5f9833c0d603",
+  "chainId": 143,
+  "network": "Monad mainnet",
+  "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6IjJKYzZXSlNqdk5TTDdqaWRfWGFWa0c0aVZPSUJyN0hTcWhrMUtpRjVxZzAifQ.eyJob3N0Ijp7ImFnZW50SWQiOiJlcmM4MDA0OjE0MzoxMDI3OCIsImFsZyI6IkVTMjU2Iiwia2V5SWQiOiIySmM2V0pTanZOU0w3amlkX1hhVmtHNGlWT0lCcjdIU3FoazFLaUY1cWcwIn0sIm1vZGVsIjoiZ2VtbWEtNC0zMWItaXQiLCJub25jZSI6IjB4N2NiYmRjZjFmNzRmNzYyNTQ5ZjRhYjc2MmFiNzE1NTUiLCJyZXEiOnsiY29tbWl0IjoiMHhmNDNkYjMzOWU4NjBhNTE2NDExNDVjZTM3YTQ2NTJkOTdiYzc2M2E5OTY3NjFlZDEyZjE5ZWYxNjI0M2FkYTA0IiwiY29zaWduZXIiOiIweDc3N2UzMzcyZjA4ZjEzODE1NThlN2JhNTAxZTFhYzEwMTRmMDgwYmVmODZjNWExNzk2ZGUyYmE0NGQ3MDY5ZWEiLCJwYXJhbXMiOnsibWF4X3Rva2VucyI6MTAyNH19LCJyZXMiOnsiY29tbWl0IjoiMHhjNWYxMTgzNjMxZTljYmNjNDNlNzU2ODA1YTlhNjA5NDI2NzFkYzhkYmUzOTlkMDFmNzUxM2MzMzhmYzdjMDM4IiwiZmluaXNoIjoic3RvcCIsInRva2Vuc0luIjo3LCJ0b2tlbnNPdXQiOjQ5fSwidCI6MTc5MTE5OTExOTgzNCwidiI6ImFzc2F5LXJlY2VpcHQvMCJ9.4iD71ZsyJ0_kbpSSKgQR5U4nIY0-r6z1RZqkmKnYpRuhJvnLrtAX44qfQSXDNgyNDm1ya8pHTIh5aBbSO6z-kQ",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "bVK6Lx-8wq5USFPKiWJzjczOPLXAuxM6f9XcF16ZK6s",
+        "y": "Mm9U0dL2l3zaKvoBJdbd9z4L0nKrJ9WUQ-OMUQIbnWE",
+        "kid": "2Jc6WJSjvNSL7jid_XaVkG4iVOIBr7HSqhk1KiF5qg0",
+        "alg": "ES256",
+        "use": "sig"
+      }
+    ]
+  },
+  "anchor": {
+    "contract": "0x049A73755cA3508ef3Daa4752A3406f6e00CfB13",
+    "agentId": 10278,
+    "root": "0xcf8daa460746fb1a913b872e446a386a78b1a717fb62f690935e753e37f002d6",
+    "proof": [],
+    "tx": "0x92a95bc262d06800ce78e1ca4fd884fb7fa1f660c0c8b80e2389c55b7eaf1ce3"
+  },
+  "source": "https://34-45-1-81.sslip.io/mainnet/v1/receipts/0x0d08124a5fcf85a0592199dc07807c223d15e7d803f073a00a7a5f9833c0d603"
+}
